@@ -26,20 +26,20 @@ Claude Code ticks boxes as tasks complete. **Gate thresholds are frozen** (see C
 
 **Goal:** a repo where the rules are enforced by tooling before any ML exists.
 
-- [ ] Create the layout from ARCHITECTURE §2 with empty packages and module docstrings.
-- [ ] `pyproject.toml` with uv, Python 3.11, pinned runtime and dev dependencies; `uv.lock`.
-- [ ] ruff (lint + format), mypy strict on `src/shortcut_lens`, pytest with markers
+- [x] Create the layout from ARCHITECTURE §2 with empty packages and module docstrings.
+- [x] `pyproject.toml` with uv, Python 3.11, pinned runtime and dev dependencies; `uv.lock`.
+- [x] ruff (lint + format), mypy strict on `src/shortcut_lens`, pytest with markers
       `slow`, `gpu`, `network`; pre-commit hooks.
-- [ ] import-linter contract from ARCHITECTURE §1 (works on stub modules).
-- [ ] GitHub Actions CI: `uv sync` → ruff → mypy → lint-imports → `pytest -m "not slow and not gpu and not network"`.
-- [ ] Makefile targets from CLAUDE.md §7 (stubs allowed for later ones).
-- [ ] `config.py`: Pydantic models, YAML loader with composition, canonical config hash.
-- [ ] `seeding.py`: `set_all_seeds(seed)`, `make_rng(seed, *keys)`.
-- [ ] `manifest.py`: write, read, validate.
-- [ ] `artifacts.py`: path helpers, `LocalStore` (HF Hub backend comes in M3).
-- [ ] `cli.py`: Typer app `slens` with every subcommand stubbed and documented in `--help`.
-- [ ] `docs/STATUS.md` and `docs/CODE_TOUR.md` initialised.
-- [ ] A test that recomputes the sha256 of `vocab/*.yaml` and asserts it matches `vocab/FROZEN.sha256`.
+- [x] import-linter contract from ARCHITECTURE §1 (works on stub modules).
+- [x] GitHub Actions CI: `uv sync` → ruff → mypy → lint-imports → `pytest -m "not slow and not gpu and not network"`.
+- [x] Makefile targets from CLAUDE.md §7 (stubs allowed for later ones).
+- [x] `config.py`: Pydantic models, YAML loader with composition, canonical config hash.
+- [x] `seeding.py`: `set_all_seeds(seed)`, `make_rng(seed, *keys)`.
+- [x] `manifest.py`: write, read, validate.
+- [x] `artifacts.py`: path helpers, `LocalStore` (HF Hub backend comes in M3).
+- [x] `cli.py`: Typer app `slens` with every subcommand stubbed and documented in `--help`.
+- [x] `docs/STATUS.md` and `docs/CODE_TOUR.md` initialised.
+- [x] A test that recomputes the sha256 of `vocab/*.yaml` and asserts it matches `vocab/FROZEN.sha256`.
 
 **Tests:** config hash independent of key order and stable across runs; manifest round-trip;
 `set_all_seeds` makes torch/numpy draws repeatable; contracts pass; a deliberately forbidden import

@@ -86,23 +86,37 @@ public app needs a licence check first. Revisit after checking.
 **D-019 · 2026-09-11 · Mitigation headline results use realistic val mode; balanced mode is reported for comparability with the literature.**
 Why: in balanced mode, retraining on group-balanced data does most of the work regardless of method (see H7a).
 
-**D-020 · 2026-09-11 · uv PyTorch extras (`cpu` / `cu12x`) with explicit indexes.**
+**D-020 · 2026-09-11 · uv PyTorch extras (`cpu` / `cu126`) with explicit indexes.**
 Why: the dev laptop is CPU-only but GPU handoffs run on Kaggle/Colab T4s; a single pinned torch
 build cannot serve both without either downloading unneeded CUDA wheels locally or manually
 reinstalling on GPU sessions (breaking the "same lockfile everywhere" reproducibility rule).
-Decision: declare optional extras `cpu` and `cu12x` in `pyproject.toml`, both pinning the identical
-torch + torchvision version, marked conflicting in `[tool.uv]`. `[[tool.uv.index]]` entries for the
-PyTorch CPU and CUDA wheel indexes, both `explicit = true`; `[tool.uv.sources]` routes torch and
-torchvision to the matching index per extra (macOS follows the uv PyTorch guide's default, no CUDA
-extra needed there). All other ML dependencies (open_clip_torch, transformers, grad-cam, ...) stay
-as ordinary main dependencies, unaffected by which extra is active.
+Decision: declare optional extras `cpu` and `cu126` in `pyproject.toml`, both pinning identical
+`torch==2.14.0` + `torchvision==0.29.0`, marked conflicting in `[tool.uv]`. `[[tool.uv.index]]`
+entries for the PyTorch CPU (`download.pytorch.org/whl/cpu`) and CUDA 12.6
+(`download.pytorch.org/whl/cu126`) wheel indexes, both `explicit = true`; `[tool.uv.sources]`
+routes torch and torchvision to the matching index per extra, with the `cu126` source additionally
+marked `sys_platform == 'linux'` (verified by running `uv lock`: the cu126 index only publishes
+linux/windows wheels, so without the marker uv's cross-platform resolution fails trying to solve
+`cu126` for macOS even though that extra is never installed there). The `pytorch-cpu` index does
+carry macOS arm64 wheels, so the `cpu` extra needs no platform marker. All other ML dependencies
+(open_clip_torch, transformers, grad-cam, ...) stay as ordinary main dependencies, unaffected by
+which extra is active.
 Usage: laptop and CI run `uv sync --extra cpu` (`make setup` uses this). The GPU notebook runs
-`uv sync --extra cu12x`.
-Verification (M0): `uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"`
-must show a CPU build (`cuda` is `None`) after `--extra cpu`. The CUDA extra's version is chosen to
-be ≤ the driver's max CUDA version on Kaggle/Colab T4 (checked via `nvidia-smi`) and must report
-`'sm_75'` in `torch.cuda.get_arch_list()`; both checks are added to the first cell of
-`notebooks/gpu_runner.ipynb` in M3.
+`uv sync --extra cu126`.
+Verification (M0, actually run): `uv run python -c "import torch; print(torch.__version__,
+torch.version.cuda, torch.cuda.is_available())"` after `--extra cpu` printed `2.14.0 None False` --
+a genuine CPU build. `torch==2.14.0`/`torchvision==0.29.0` were also confirmed (via the PyPI JSON
+API) to be the matching compatible pair, and both `+cu126` wheels to exist for `cp311`/linux.
+`cu126` was chosen over `cu121`/`cu124` (retired for this torch release) and newer `cu128`+
+(chosen `cu126` is the more conservative, widely available choice). The exact-CUDA-version check
+against the Kaggle/Colab driver and `'sm_75'` in `torch.cuda.get_arch_list()` cannot be run from
+this CPU-only machine; both checks are deferred to the first cell of `notebooks/gpu_runner.ipynb`
+in M3, to run for real on the GPU session before it is trusted.
+Note: `numpy` and `scipy` in the main dependency list (`numpy==2.4.6`, `scipy==1.17.1`) are one
+minor version behind the latest PyPI release at the time of writing (`numpy==2.5.3` requires
+Python >=3.12, which conflicts with the `requires-python = ">=3.11,<3.12"` pin in D-021; `scipy`
+followed for consistency) -- discovered by letting `uv lock` resolve unpinned versions first, then
+hard-pinning what it actually chose, rather than guessing compatibility from memory.
 Alternatives: a single CPU-only pin with manual `pip install` of CUDA wheels in the GPU notebook
 (rejected: not reproducible from the lockfile, easy to silently drift versions between laptop and
 GPU session).

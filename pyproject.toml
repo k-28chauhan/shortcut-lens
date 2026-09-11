@@ -1,0 +1,162 @@
+[project]
+name = "shortcut-lens"
+version = "0.1.0"
+description = "Find, name, verify and fix an image classifier's hidden failure groups, validated against shortcuts planted with controlled strength."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "open_clip_torch==3.3.0",
+  "transformers==5.17.0",
+  "numpy==2.4.6",
+  "pandas==3.0.5",
+  "pyarrow==25.0.1",
+  "scipy==1.17.1",
+  "scikit-learn==1.9.1",
+  "umap-learn==0.5.12",
+  "grad-cam==1.5.7",
+  "yake==0.7.3",
+  "typer==0.27.2",
+  "pydantic==2.13.5",
+  "pyyaml==6.0.3",
+  "rich==15.0.0",
+  "matplotlib==3.11.1",
+  "plotly==7.0.0",
+  "gradio==6.27.0",
+  "huggingface_hub==1.31.0",
+  "tqdm==4.70.1",
+  "Pillow==12.3.0",
+]
+
+# Waterbirds download dependency (wilds, or a direct tarball loader) is decided in M1
+# (see docs/ARCHITECTURE.md §9) and added then with a DECISIONS entry.
+
+[project.optional-dependencies]
+# D-020: torch/torchvision are pinned identically in both extras; only the wheel index differs.
+# Laptop + CI: `uv sync --extra cpu`. GPU notebook (Kaggle/Colab T4): `uv sync --extra cu126`.
+cpu = [
+  "torch==2.14.0",
+  "torchvision==0.29.0",
+]
+cu126 = [
+  "torch==2.14.0",
+  "torchvision==0.29.0",
+]
+
+[project.scripts]
+slens = "shortcut_lens.cli:app"
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "hypothesis==6.168.0",
+  "ruff==0.16.7",
+  "mypy==2.3.1",
+  "import-linter==2.15",
+  "pre-commit==4.6.2",
+  "statsmodels==0.15.0",
+  "types-PyYAML==6.0.12.20260906",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shortcut_lens"]
+
+# --- D-020: uv PyTorch cpu/cuda extras -------------------------------------------------------
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu126" },
+  ],
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu126", extra = "cu126", marker = "sys_platform == 'linux'" },
+]
+torchvision = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu126", extra = "cu126", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+# --- Lint, format, types -----------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["vocab", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["shortcut_lens"]
+mypy_path = "src"
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+# Third-party libraries without inline types or stubs published; suppress only the missing-import
+# noise for them, not project code.
+module = [
+  "yake.*",
+  "umap.*",
+  "pytorch_grad_cam.*",
+  "gradio.*",
+]
+ignore_missing_imports = true
+
+# --- Tests ---------------------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "slow: real CLIP/BLIP, bootstrap coverage simulations (minutes; make test-slow)",
+  "gpu: never run in CI; optional sanity checks in the GPU notebook only",
+  "network: hits the network, e.g. dataset downloads (make test-slow)",
+]
+
+# --- The group-label firewall (docs/ARCHITECTURE.md §1) ------------------------------------------
+
+[tool.importlinter]
+root_package = "shortcut_lens"
+
+[[tool.importlinter.contracts]]
+name = "Label-free zone cannot see group labels"
+type = "forbidden"
+source_modules = [
+  "shortcut_lens.data",
+  "shortcut_lens.models",
+  "shortcut_lens.training",
+  "shortcut_lens.embeddings",
+  "shortcut_lens.discovery",
+  "shortcut_lens.naming",
+  "shortcut_lens.mitigation.label_free",
+  "shortcut_lens.mitigation.selection",
+  "shortcut_lens.app",
+]
+forbidden_modules = [
+  "shortcut_lens.build",
+  "shortcut_lens.oracle",
+  "shortcut_lens.evaluation",
+  "shortcut_lens.verification",
+  "shortcut_lens.mitigation.oracle_ref",
+  "shortcut_lens.report",
+]

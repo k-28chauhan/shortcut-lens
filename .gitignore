@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# uv / venv
+.venv/
+
+# Artefacts (gitignored per docs/ARCHITECTURE.md §2; results/ and reports/ ARE committed)
+artifacts/
+jobs/*.local.yaml
+
+# Secrets
+.env
+
+# OS
+.DS_Store
+
+# Notebooks: outputs stripped by nbstripout, but ignore checkpoints
+.ipynb_checkpoints/
