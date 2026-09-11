@@ -6,9 +6,15 @@ The human reads it first when returning to the project.
 ## Current state
 
 - **Current milestone:** M0 — scaffold complete, gate G0 run, awaiting human checkpoint
-- **Last updated:** 2026-09-11 (M0 implemented and locally verified)
+- **Last updated:** 2026-09-11 (M0 implemented and locally verified; dev-machine hardware
+  corrected to Apple Silicon/MPS, not CPU-only -- D-025, D-026)
 - **Blocked on:** human checkpoint for M0 (see docs/PLAN.md M0); gate G0's "green in CI" clause
   is unverified because the repo has not been pushed to `origin` yet (see gate log below)
+- **Dev machine:** MacBook Air M4, 24 GB unified memory, MPS-capable (confirmed:
+  `torch.backends.mps.is_available()` → `True` after `uv sync --extra cpu`, D-026). Local
+  training/embedding uses MPS by default from M3 onward; cloud GPU handoffs (Kaggle/Colab T4)
+  remain the fallback for jobs too large locally (Waterbirds, the E3 sweep) and for non-Mac
+  reproducibility.
 
 ## Next actions
 

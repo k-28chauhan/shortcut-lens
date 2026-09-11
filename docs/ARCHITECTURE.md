@@ -391,9 +391,23 @@ Optional: `wandb` (off by default; CSV logging is the default).
 
 ## 10. Devices and performance
 
-- `device: auto` → CUDA if available, else CPU. Smoke configs force CPU.
-- T4 notes: use fp16 autocast + GradScaler; PyTorch SDPA/standard kernels only.
-- DataLoader: `num_workers` from config (Kaggle ≈ 4), `pin_memory=True` on CUDA,
-  `persistent_workers=True` for training.
+- `device: auto` → `mps` if available, else `cuda`, else `cpu` (D-025). Smoke configs,
+  correctness gates and determinism tests set `device: cpu` explicitly, never `auto` -- MPS
+  reductions are not bit-stable run to run, so anything checking exact reproducibility (e.g. exact
+  resume) must not run on it.
+- Three device branches in `training/erm.py` and `embeddings/model_space.py`:
+  - **CUDA** (cloud handoffs, T4): fp16 autocast + GradScaler; PyTorch SDPA/standard kernels only.
+  - **MPS** (local, Apple Silicon): float32, `torch.autocast("mps")` optional, **no GradScaler**
+    (its MPS support is immature; float32 is fast enough on unified memory at this project's
+    model sizes).
+  - **CPU**: float32.
+- `PYTORCH_ENABLE_MPS_FALLBACK=1` must be exported whenever `slens train`/`slens embed` run
+  locally with `device=mps`, so an op with no MPS kernel falls back to CPU instead of raising. Not
+  set for `make check`/`make test` (never train or embed) or `make smoke` (forces `device: cpu`
+  by design, see docs/PLAN.md M3) -- see the Makefile for where this is documented (D-025).
+- DataLoader: `num_workers=0` for smoke/test/CI configs (multiprocessing fork issues on macOS); a
+  small configurable number for larger local training runs, defaulting low on macOS specifically;
+  `num_workers` from config on Kaggle/Colab (≈4). `pin_memory=True` on CUDA only.
+  `persistent_workers=True` for training whenever `num_workers > 0`.
 - Everything after embeddings (discovery, confirmation, naming scoring, mitigation, evaluation,
-  reporting) must run on a laptop CPU in minutes.
+  reporting) must run in minutes on CPU (laptop or CI), regardless of what produced the embeddings.

@@ -125,15 +125,23 @@ Shared defaults unless stated: ResNet-50, 3 seeds (0, 1, 2), metrics as defined 
 
 ## Compute budget (estimates — replace with measured values after H1)
 
-| Job | Estimate on one T4 | Notes |
+**Local vs cloud.** The dev machine has an Apple Silicon GPU (MPS, 24 GB unified memory), not a
+CUDA GPU. planted_pets ERM (both the headline and control configs) and its embeddings are
+expected to run locally on MPS -- no cloud handoff needed for E1/E2/E4/E6/E7's planted_pets cells.
+Waterbirds and the E3 sweep keep the cloud (Kaggle/Colab T4) estimates below as the expected path,
+since 45 sweep runs plus Waterbirds are likely to exceed comfortable local session length even if
+they would technically fit in 24 GB. Actual local (MPS) timings are re-measured at M3 and recorded
+in `docs/STATUS.md` alongside the cloud numbers below, replacing "estimate" with "measured".
+
+| Job | Estimate on one T4 (cloud) | Notes |
 |---|---|---|
-| planted_pets ERM, ResNet-50, ~2.4k train images, 20 epochs | ~5–10 min per run | 6 runs in H1 |
-| waterbirds ERM, ResNet-50, 30 epochs | ~20–30 min per run | 3 runs in H1 |
-| Model-space embeddings, all splits | ~1–3 min per run | |
-| CLIP ViT-B/32 embeddings (planted cache per patch size, both versions of each val/test image) | ~5 min per patch size | Reused across ρ |
+| planted_pets ERM, ResNet-50, ~2.4k train images, 20 epochs | ~5–10 min per run | 6 runs; expected to run locally on MPS instead, re-measured at M3 |
+| waterbirds ERM, ResNet-50, 30 epochs | ~20–30 min per run | 3 runs in H1 (cloud) |
+| Model-space embeddings, all splits | ~1–3 min per run | planted_pets expected locally on MPS |
+| CLIP ViT-B/32 embeddings (planted cache per patch size, both versions of each val/test image) | ~5 min per patch size | Reused across ρ; expected locally on MPS |
 | BLIP captions for val_a sets | ~10–20 min total | H2 |
-| E3 sweep: 45 runs | ~4–8 h (ResNet-50); ~1–2 h (ResNet-18) | H3; ask before launching |
-| **Total** | **~8–14 GPU hours** | Check current Kaggle/Colab quotas |
+| E3 sweep: 45 runs | ~4–8 h (ResNet-50); ~1–2 h (ResNet-18) | H3 (cloud); ask before launching |
+| **Total (cloud fallback path)** | **~8–14 GPU hours** | Check current Kaggle/Colab quotas; local MPS runs reduce this in practice |
 
 ---
 

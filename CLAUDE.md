@@ -82,15 +82,23 @@ These exist so every number we publish survives scrutiny. Breaking one is worse 
 
 ## 4. Compute rules
 
-- Assume the development machine has **no GPU**. Locally, run only CPU smoke configs
-  (`configs/**/smoke*.yaml`, SyntheticShapes, tiny subsets).
-- GPU work is **handed off** to the human, who runs it on Kaggle or Colab using
-  `notebooks/gpu_runner.ipynb` and `docs/RUNBOOK_GPU.md`. Use `/handoff` to prepare a job:
-  a jobs YAML under `jobs/`, the exact commit to run, expected outputs, and a time estimate.
-- Before proposing any sweep, **measure one real run**, extrapolate, and ask before anything
-  estimated above 1 GPU-hour.
-- After a handoff, pull artifacts (`slens pull-artifacts`) and validate them (`slens validate-run`)
-  before using them. Mismatched commit or config hash means the run cannot be used.
+- The development machine has an Apple Silicon GPU (MPS) -- a MacBook Air M4, 24 GB unified
+  memory -- not a CUDA GPU, and not CPU-only. Use MPS for local training and embedding; most jobs
+  (SyntheticShapes, PlantedPets) are expected to run locally rather than being handed off.
+  `device: auto` resolves to `mps` if available, else `cuda`, else `cpu` (D-025). Correctness
+  gates, determinism tests, and `make smoke` force `device: cpu` explicitly, never `auto` --
+  MPS reductions are not bit-stable run to run, so anything checking exact reproducibility must
+  not run on it.
+- The cloud GPU handoff path is kept as a **fallback**: for jobs too large for 24 GB unified
+  memory (Waterbirds, the E3 sweep), and so the project stays reproducible for a non-Mac user. The
+  human runs handoffs on Kaggle or Colab using `notebooks/gpu_runner.ipynb` and
+  `docs/RUNBOOK_GPU.md`. Use `/handoff` to prepare one: a jobs YAML under `jobs/`, the exact
+  commit to run, expected outputs, and a time estimate.
+- Before proposing any sweep (local or cloud), **measure one real run**, extrapolate, and ask
+  before anything estimated above 1 GPU-hour of cloud time.
+- After a cloud handoff, pull artifacts (`slens pull-artifacts`) and validate them
+  (`slens validate-run`) before using them. Mismatched commit or config hash means the run cannot
+  be used.
 - Never commit secrets. Tokens come from environment variables (`HF_TOKEN`).
 
 ---

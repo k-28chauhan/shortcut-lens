@@ -111,8 +111,12 @@ paper for five p-values.
 
 - [ ] `models/backbones.py`: resnet18, resnet50 (verify torchvision weights enums), tiny CNN;
       2-class head; `features()` returns penultimate activations.
-- [ ] `training/erm.py`: AMP + GradScaler, constant LR default, checkpoint every epoch, exact resume,
-      `history.csv`, selection by average val accuracy, predictions for all splits.
+- [ ] `training/erm.py`: constant LR default, checkpoint every epoch, exact resume (on CPU, see
+      below), `history.csv`, selection by average val accuracy, predictions for all splits.
+      Device policy (D-025): `auto` → mps > cuda > cpu; CUDA branch uses AMP + GradScaler, MPS
+      branch uses float32 with no GradScaler, CPU branch uses float32.
+      `PYTORCH_ENABLE_MPS_FALLBACK=1` when invoked locally with `device=mps`. DataLoader
+      `num_workers=0` for smoke/test/CI configs, small default on macOS otherwise.
 - [ ] `embeddings/model_space.py`, `embeddings/clip_space.py` (verify open_clip tags),
       `embeddings/store.py`, `embeddings/cache.py` (planted CLIP cache keyed by render spec).
       Verify open_clip's preprocessing is a no-op resize/crop on already-224×224 inputs (run code,

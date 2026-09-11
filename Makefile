@@ -1,5 +1,12 @@
 .PHONY: setup check test test-slow smoke reproduce-cpu app
 
+# PYTORCH_ENABLE_MPS_FALLBACK=1 must be exported whenever `slens train`/`slens embed` run locally
+# with device=mps (D-025) -- an op with no MPS kernel then falls back to CPU instead of raising.
+# None of the targets below need it: `check`/`test` never train or embed, and `smoke` forces
+# device=cpu by design (docs/PLAN.md M3) since MPS is not bit-stable enough for its exact-resume
+# check. Local training/embedding is invoked directly (`uv run slens train --config ...`), not
+# through a Make target -- set the variable there once M3 lands, not here.
+
 setup:
 	uv sync --extra cpu
 	uv run pre-commit install

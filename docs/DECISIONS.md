@@ -167,3 +167,44 @@ a sanity gate, never as the selection rule for downstream stages.
 Alternatives: a fixed method/space (simpler, but arbitrary and often not the best-performing
 combination); selecting via oracle metrics against `val_b` groups (rejected: exactly the group-label
 leakage this project's firewall exists to prevent).
+
+**D-025 · 2026-09-11 · Device policy: `auto` picks MPS > CUDA > CPU; correctness-sensitive paths force CPU.**
+Why: the dev machine turned out to have an Apple Silicon GPU (MPS, MacBook Air M4, 24 GB unified
+memory), not a CUDA GPU and not CPU-only as originally assumed when D-020/D-021 were written --
+local training/embedding should use it by default. But MPS's floating-point reductions are not
+bit-stable run to run the way CPU is, so anything checking exact reproducibility must not trust it.
+Decision: `device: auto` resolves to `mps` if `torch.backends.mps.is_available()`, else `cuda`,
+else `cpu`. Three branches in `training/erm.py` / `embeddings/model_space.py`: CUDA uses fp16
+autocast + GradScaler (unchanged); MPS uses float32, optionally `torch.autocast("mps")`, and
+explicitly never GradScaler (its MPS support is immature); CPU uses float32. Smoke configs,
+correctness gates and determinism tests (e.g. the exact-resume test) set `device: cpu` explicitly
+in their YAML, never `auto`. `PYTORCH_ENABLE_MPS_FALLBACK=1` is exported whenever `slens
+train`/`slens embed` run locally with `device=mps`, so an op with no MPS kernel falls back to CPU
+instead of raising; it is not set for CPU-only paths (`make check`/`test`/`smoke`), where it would
+be dead weight (see the Makefile). DataLoader `num_workers=0` for smoke/test/CI configs
+(multiprocessing fork issues on macOS); a small configurable number for larger local runs,
+defaulting low on macOS specifically.
+Alternatives: always forcing CPU locally, as originally decided under the (incorrect) assumption
+that the dev machine was CPU-only -- superseded now that the real hardware has a usable GPU;
+treating MPS as bit-stable enough for correctness tests (rejected: known MPS reduction-order
+nondeterminism would make exact-resume and coverage-simulation tests flaky for reasons unrelated
+to real bugs, defeating their purpose).
+Revisit if: a specific op has no MPS kernel and no CPU fallback (needs a per-op workaround), or
+MPS numerics turn out unstable enough to affect even non-exact-reproducibility results.
+
+**D-026 · 2026-09-11 · macOS torch install: the `cpu` extra already resolves the MPS-capable wheel.**
+Why: unlike Linux/Windows, PyTorch does not publish a separate MPS-specific wheel or index -- the
+standard macOS arm64 wheel (served by both plain PyPI and `download.pytorch.org/whl/cpu`, already
+confirmed identical in D-020) has MPS support built in. No third extra or macOS-specific index
+routing is needed alongside the `cpu`/`cu126` extras already declared.
+Decision: `make setup` and any local `uv sync --extra cpu` on this machine installs the
+MPS-capable build automatically; `torch.backends.mps.is_available()` is what `device: auto` checks
+(D-025), not a different install path. The `cu126` extra and the exact-CUDA-version / `sm_75`
+checks in `notebooks/gpu_runner.ipynb` (D-020) remain relevant only for cloud GPU handoffs
+(Kaggle/Colab T4), never for local runs.
+Verification (M0, actually run): `uv run python -c "import torch;
+print(torch.backends.mps.is_available(), torch.backends.mps.is_built())"` printed `True True` on
+this machine after `uv sync --extra cpu` -- the `cpu` extra's wheel is confirmed MPS-capable
+without any further install changes.
+Alternatives: none -- this confirms the existing D-020 extras setup already covers this machine
+correctly, now that the dev machine's real hardware is known.
