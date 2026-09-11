@@ -34,7 +34,10 @@ Shared defaults unless stated: ResNet-50, 3 seeds (0, 1, 2), metrics as defined 
   space, patch visibility and validation composition?
 - **Grid:** ρ ∈ {0.5, 0.75, 0.9, 0.95, 0.99} × patch size ∈ {8, 16, 32} px × seeds {0, 1, 2} = 45 runs.
   Val modes: balanced and realistic. Methods: all four. Spaces: model, CLIP.
-  (If the measured cost is too high, ResNet-18 for the sweep only — decision logged before running.)
+  **Pre-registered fallback (D-022):** after H1 measured timings are in, if the extrapolated cost of
+  the full 45-run sweep (training + embeddings + reliance) exceeds 6 GPU-hours, run the sweep on
+  ResNet-18 instead of ResNet-50; also run ResNet-18 bridge runs at the headline config (ρ=0.95,
+  size 32, seeds 0–2) for comparability. Headline experiments (E1, E2, E4, E6, E7) stay ResNet-50.
 - **Measure:** x = `R_net`; y = precision@25 and AUROC of the top-ranked confirmed slice for the dog
   class; also number of confirmed slices.
 - **Hypotheses:**
@@ -56,6 +59,8 @@ Shared defaults unless stated: ResNet-50, 3 seeds (0, 1, 2), metrics as defined 
 ## E5 — Naming
 
 - **Question (RQ4):** How often are confirmed slices named correctly, and how vocabulary-dependent is it?
+- **Slices named:** confirmed slices from the FR-C4-selected (method, space) combination per run
+  (D-024) — the label-free choice, not the oracle-best-of-all used only for gate G4.
 - **Namers:** `vocab` (full), `vocab` (no_artifacts), `caption_keywords`.
 - **Measure:** hit@3 per target group; support counts for caption keywords; example names per slice.
 - **Hypotheses:**
@@ -68,7 +73,8 @@ Shared defaults unless stated: ResNet-50, 3 seeds (0, 1, 2), metrics as defined 
 
 - **Question (RQ5):** Does removing the named cause fix the errors, beyond a same-size control edit?
 - **Configs:** planted runs from E1 (and selected E3 cells); interventions `patch_remove`, `patch_add`,
-  `null_patch_add`; size-matched random control sample. Waterbirds only in stretch S1.
+  `null_patch_add`; size-matched random control sample. Waterbirds only in stretch S1. Verified slices
+  are the top confirmed slice of the FR-C4-selected (method, space) combination per run (D-024).
 - **Measure:** fix and break rates with CIs; verdicts.
 - **Hypothesis H6:** fix rate for the top patch slice exceeds the null-patch control with non-overlapping CIs.
 - **Outputs:** Figure **F2**, verification table.
@@ -79,6 +85,8 @@ Shared defaults unless stated: ResNet-50, 3 seeds (0, 1, 2), metrics as defined 
 - **Question (RQ6):** How much of the oracle DFR gain can label-free last-layer methods recover?
 - **Methods:** ERM; `ll_balanced`; `afr` (label-free tuned); `afr` (oracle tuned);
   `dfr_discovered` (label-free tuned); `dfr_discovered` (oracle tuned); `dfr_oracle`.
+  `dfr_discovered`'s pseudo-groups use confirmed slices from the FR-C4-selected (method, space)
+  combination per run (D-024).
 - **Configs:** planted_pets (ρ=0.95, size 32) and waterbirds; balanced and realistic val; 3 seeds.
 - **Measure (test, via `evaluate --final`):** average, WGA, recovery, cost of labels.
 - **Hypotheses:**

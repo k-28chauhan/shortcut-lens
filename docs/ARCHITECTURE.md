@@ -280,7 +280,7 @@ dataset:
   build_seed: 0
 train:
   arch: resnet50
-  pretrained: imagenet          # map to the exact torchvision weights enum at M3 (verify)
+  pretrained: IMAGENET1K_V1     # torchvision weights enum name (D-023); verify exact enum at M3
   epochs: 20
   batch_size: 32
   optimizer: {name: sgd, lr: 1.0e-3, momentum: 0.9, weight_decay: 1.0e-4}
@@ -343,6 +343,8 @@ must pass label-free functions only public data and opaque datasets.
 
 - **Planting positions:** `rng = np.random.default_rng(hash64(example_id, build_seed))`; the patch
   is fully inside the 224×224 canvas. Horizontal flips in training move the patch; that is intended.
+  A flip is a bijection, so a patch fully inside the canvas stays fully inside and its pixel count
+  is unchanged after flipping (verified by a property test in `build/planting.py`).
 - **Augmentation:** resize/crop happen once at build time; training augmentation is horizontal flip
   only (random crops could cut the patch out and silently change ρ).
 - **PCA:** fitted on `val_a` embeddings of the relevant space, after L2 normalisation.
@@ -358,6 +360,12 @@ must pass label-free functions only public data and opaque datasets.
   (q from config).
 - **confirm:** 2×2 table (in slice / not) × (incorrect / correct) on `val_b`; one-sided Fisher exact
   test (greater); BH over all candidates of a (method, space, val_mode) run.
+- **select_combo (FR-C4):** label-free selection of which (method, space) combination feeds naming,
+  verification and `dfr_discovered` — the combination whose top confirmed slice has the largest
+  error-rate lift over the rest of its class on `val_b`, tie-break by smallest q-value. Uses only
+  `val_b` error rates and q-values, no group labels (D-024). All combinations still appear in the
+  appendix table (T2); gate G4's oracle-best-of-all framing is a sanity check only, never the
+  selection rule.
 - **last_layer:** full-batch L-BFGS logistic regression in PyTorch on standardised embeddings
   (standardisation statistics from `val_a`), optional L1 via proximal step or L2, optional L2 pull
   towards the ERM head, sample weights. Checked against sklearn on unweighted L2 problems.

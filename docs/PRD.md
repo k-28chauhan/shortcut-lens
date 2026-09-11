@@ -138,6 +138,7 @@ training-set proportions and stored in the oracle table, not hardcoded.
   per image (deterministic from example id + seed).
 - Fallback if the model does not learn the shortcut strongly enough (see gate G3):
   CIFAR-10 cat vs dog with the same planting code (decision logged).
+- **Control condition:** ρ = 0.5 (no patch–class correlation), same patch settings.
 
 **Waterbirds.**
 - Official train/val/test splits. Expected group counts (verify at build time):
@@ -216,6 +217,10 @@ that gives a continuous membership score for any example (needed for AUROC).
 - **FR-C2** Benjamini–Hochberg correction across all candidate slices; confirmed if q ≤ `fdr_q`
   (default 0.10) and size ≥ `min_size` (default 20).
 - **FR-C3** Global ranking of confirmed slices by q-value, then effect size.
+- **FR-C4** Label-free selection of the (method, space) combination that feeds naming, verification
+  and `dfr_discovered`: the combination whose top confirmed slice has the largest error-rate lift
+  over the rest of its class on `val_b`, tie-break by smallest q-value (D-024). Uses only `val_b`
+  error rates and q-values, no group labels. All combinations still appear in an appendix table.
 
 ### FR-N Naming (label-free)
 - **FR-N1** `vocab` namer: CLIP text embeddings of phrases from `vocab/generic_phrases.yaml` (prompt

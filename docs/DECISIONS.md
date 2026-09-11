@@ -85,3 +85,71 @@ public app needs a licence check first. Revisit after checking.
 
 **D-019 · 2026-09-11 · Mitigation headline results use realistic val mode; balanced mode is reported for comparability with the literature.**
 Why: in balanced mode, retraining on group-balanced data does most of the work regardless of method (see H7a).
+
+**D-020 · 2026-09-11 · uv PyTorch extras (`cpu` / `cu12x`) with explicit indexes.**
+Why: the dev laptop is CPU-only but GPU handoffs run on Kaggle/Colab T4s; a single pinned torch
+build cannot serve both without either downloading unneeded CUDA wheels locally or manually
+reinstalling on GPU sessions (breaking the "same lockfile everywhere" reproducibility rule).
+Decision: declare optional extras `cpu` and `cu12x` in `pyproject.toml`, both pinning the identical
+torch + torchvision version, marked conflicting in `[tool.uv]`. `[[tool.uv.index]]` entries for the
+PyTorch CPU and CUDA wheel indexes, both `explicit = true`; `[tool.uv.sources]` routes torch and
+torchvision to the matching index per extra (macOS follows the uv PyTorch guide's default, no CUDA
+extra needed there). All other ML dependencies (open_clip_torch, transformers, grad-cam, ...) stay
+as ordinary main dependencies, unaffected by which extra is active.
+Usage: laptop and CI run `uv sync --extra cpu` (`make setup` uses this). The GPU notebook runs
+`uv sync --extra cu12x`.
+Verification (M0): `uv run python -c "import torch; print(torch.__version__, torch.version.cuda)"`
+must show a CPU build (`cuda` is `None`) after `--extra cpu`. The CUDA extra's version is chosen to
+be ≤ the driver's max CUDA version on Kaggle/Colab T4 (checked via `nvidia-smi`) and must report
+`'sm_75'` in `torch.cuda.get_arch_list()`; both checks are added to the first cell of
+`notebooks/gpu_runner.ipynb` in M3.
+Alternatives: a single CPU-only pin with manual `pip install` of CUDA wheels in the GPU notebook
+(rejected: not reproducible from the lockfile, easy to silently drift versions between laptop and
+GPU session).
+
+**D-021 · 2026-09-11 · Exact Python 3.11 patch pin via `.python-version`; CI on ubuntu-24.04 with astral-sh/setup-uv.**
+Why: reproducibility requires the same interpreter locally, in CI and on GPU notebooks, not just "3.11".
+Decision: pin the latest available 3.11.x patch release in `.python-version`;
+`requires-python = ">=3.11,<3.12"` in `pyproject.toml`. CI (`ci.yml`) runs on `ubuntu-24.04`, uses
+`astral-sh/setup-uv` with dependency caching, and calls `uv python install` so the pinned
+interpreter (not the runner's system Python) is used. `notebooks/gpu_runner.ipynb` likewise installs
+and uses the uv-managed interpreter from `.python-version`, not the platform's default Python.
+Alternatives: floating on "3.11" latest per environment (rejected: silent interpreter drift between
+laptop, CI and GPU session is exactly the kind of bug this project's reproducibility rules exist to prevent).
+
+**D-022 · 2026-09-11 · Pre-registered ResNet-18 fallback for the E3 sensitivity sweep.**
+Why: the 45-run sweep's GPU cost is only an estimate until H1 timings are measured; deciding the
+fallback rule now, before seeing the estimate, keeps the choice honest (see EXPERIMENTS.md's
+pre-registration rule).
+Decision: after H1 measured timings are in, if the extrapolated cost of the full 45-run sweep
+(training + embeddings + reliance) exceeds 6 GPU-hours, run the sweep on ResNet-18 instead of
+ResNet-50. Headline experiments (E1, E2, E4, E6, E7) remain ResNet-50 regardless. If the ResNet-18
+sweep is used, also run ResNet-18 bridge runs at the headline config (ρ=0.95, patch size 32, seeds
+0–2) so the two architectures are comparable at one point.
+Alternatives: deciding ad hoc after seeing the estimate (rejected: pre-registration is the point).
+
+**D-023 · 2026-09-11 · torchvision pretrained weights: `IMAGENET1K_V1` for both resnet18 and resnet50.**
+Why: comparability with the Waterbirds/DFR literature, which reports results using the V1 (original)
+ImageNet weights, not the newer V2 training recipes.
+Decision: `models/backbones.py` loads `ResNet18_Weights.IMAGENET1K_V1` /
+`ResNet50_Weights.IMAGENET1K_V1`. Exact enum names verified by running code at M3 (CLAUDE.md §5's
+"verify external APIs" rule), not assumed from memory.
+Alternatives: `IMAGENET1K_V2` (higher-accuracy backbones, but the shift in training recipe —
+different augmentation, LR schedule — would make published WGA-gap comparisons to prior work
+less clean).
+
+**D-024 · 2026-09-11 · Label-free rule for selecting which (method, space) combination feeds naming, verification and `dfr_discovered`.**
+Why: gate G4 (best of all method × space combinations against ground truth) is a legitimate sanity
+check that the tool *can* find the shortcut, but it is an oracle-style selection and must never be
+used to choose what downstream stages actually consume — that would leak group-label information
+into a label-free pipeline.
+Decision: add FR-C4 — per run, select the (method, space) combination whose top confirmed slice has
+the largest error-rate lift over the rest of its class on `val_b`, tie-break by smallest q-value.
+This selection uses only `val_b` error rates and q-values (no group labels) and is implemented in
+the label-free zone (`discovery/select_combo.py`). The selected combination is what feeds naming
+(M5), verification (M6) and `dfr_discovered` (M7). All (method, space) combinations still appear in
+an appendix table (T2) for transparency; G4 keeps using the oracle-best-of-all framing, but only as
+a sanity gate, never as the selection rule for downstream stages.
+Alternatives: a fixed method/space (simpler, but arbitrary and often not the best-performing
+combination); selecting via oracle metrics against `val_b` groups (rejected: exactly the group-label
+leakage this project's firewall exists to prevent).

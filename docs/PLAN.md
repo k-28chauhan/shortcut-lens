@@ -1,7 +1,7 @@
 # PLAN — shortcut-lens
 
 Nine milestones (M0–M8), each ending in an exit gate (G0–G8) and a human checkpoint.
-Claude Code ticks boxes as tasks complete. **Gate thresholds are frozen** (see CLAUDE.md §3.4).
+Claude Code ticks boxes as tasks complete. **Gate thresholds are frozen** (see CLAUDE.md §3, rule 4).
 
 ## Principles
 
@@ -115,6 +115,8 @@ paper for five p-values.
       `history.csv`, selection by average val accuracy, predictions for all splits.
 - [ ] `embeddings/model_space.py`, `embeddings/clip_space.py` (verify open_clip tags),
       `embeddings/store.py`, `embeddings/cache.py` (planted CLIP cache keyed by render spec).
+      Verify open_clip's preprocessing is a no-op resize/crop on already-224×224 inputs (run code,
+      not memory).
 - [ ] `verification/reliance.py` + `slens reliance`: `R_net` with CIs (PRD FR-R1).
 - [ ] `artifacts.py` HFHubStore; `slens pull-artifacts`; `slens validate-run`.
 - [ ] `jobs.py` + `slens run-jobs`; `notebooks/gpu_runner.ipynb`; `docs/RUNBOOK_GPU.md` updated with exact cells.
@@ -149,6 +151,8 @@ why selection uses average accuracy, and what `R_net` measures.
 - [ ] `discovery/base.py`, `discovery/preprocess.py` (L2 + PCA on val_a).
 - [ ] `confidence.py`, `error_kmeans.py`, `domino_em.py` (from scratch), `failure_direction.py`.
 - [ ] `discovery/confirm.py`: Fisher + BH + ranking on val_b.
+- [ ] `discovery/select_combo.py` (FR-C4, D-024): label-free selection of the (method, space)
+      combination that feeds naming, verification and `dfr_discovered`.
 - [ ] `slens discover`, `slens confirm`.
 - [ ] `evaluation/discovery_eval.py`: AUROC, precision@10/25, top-1 hit, best-match reference, on val_b and test.
 - [ ] Run E2 and E4 on CPU from H1 artefacts, balanced and realistic val modes.
@@ -162,9 +166,13 @@ synthetic_shapes `dot` ρ=0.95 with the tiny CNN → top confirmed slice precisi
 **Gate G4 (frozen thresholds):**
 - planted_pets ρ=0.95 size 32, balanced val, in ≥ 2 of 3 seeds: for class *dog*, the top-ranked
   confirmed slice of at least one (method, space) has test precision@25 ≥ 0.8 and AUROC ≥ 0.8 for
-  group (dog, patch).
+  group (dog, patch). This gate deliberately checks the best of all method × space combinations
+  against ground truth (oracle-selected) as a sanity check that the tool *can* find the shortcut at
+  all — it is not the rule used to pick what feeds naming/verification/mitigation downstream. That
+  is a separate, label-free rule, FR-C4 (D-024): implemented in `discovery/select_combo.py`.
 - control ρ=0.5: no confirmed slice reaches precision@25 ≥ 0.8 for any patch group.
-- Draft T2 produced.
+- Draft T2 produced (with all method × space combinations in an appendix, and the FR-C4-selected
+  combination marked).
 
 **Human checkpoint:** read `domino_em.py` and `confirm.py`. Derive the EM updates on paper. Explain
 why confirmation happens on a different split than discovery.
