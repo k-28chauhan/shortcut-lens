@@ -1,0 +1,89 @@
+# FROZEN — generic phrase vocabulary for the `vocab` namer (see PRD FR-N1, FR-N2; DECISIONS D-012).
+# Written before any results exist. Do not edit without a DECISIONS entry and human approval.
+# The `no_artifacts` variant drops the categories listed in `artifact_categories`.
+
+templates:
+  - "a photo with {phrase}."
+  - "a photo of a {classname} with {phrase}."
+  - "a picture showing {phrase}."
+
+artifact_categories: [artifacts, colors]
+
+categories:
+  scenes:
+    - water
+    - a lake
+    - the ocean
+    - a beach
+    - a river
+    - a swamp
+    - a boat
+    - a forest
+    - trees
+    - bamboo
+    - grass
+    - a field
+    - mountains
+    - the sky
+    - snow
+    - a desert
+    - a city street
+    - a building
+    - indoors
+    - a living room
+    - a bed
+    - a sofa
+    - a carpet
+    - a kitchen
+    - a garden
+    - a fence
+    - a road
+    - rocks
+    - sand
+    - leaves
+    - flowers
+    - a cage
+    - a car
+  objects_and_people:
+    - a person
+    - a hand
+    - a child
+    - a toy
+    - a collar
+    - a leash
+    - a ball
+    - food
+    - a bowl
+    - a blanket
+  artifacts:
+    - a small colored square
+    - a sticker
+    - a watermark
+    - text
+    - a logo
+    - a border
+    - a frame
+    - a timestamp
+  colors:
+    - something red
+    - something blue
+    - something green
+    - something yellow
+    - something pink
+    - something purple
+    - something orange
+    - something white
+    - something black
+  image_properties:
+    - a blurry photo
+    - a dark photo
+    - an overexposed photo
+    - a black and white photo
+    - a close-up
+    - something far away
+    - a view from above
+  poses:
+    - lying down
+    - sleeping
+    - running
+    - a group of animals

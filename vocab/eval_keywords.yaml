@@ -1,0 +1,30 @@
+# FROZEN — keywords used ONLY by evaluation/naming_eval.py to score naming hit@3 (PRD §12).
+# Never read by the label-free zone. Written before any results exist.
+# "present" groups: a top-3 POSITIVE name must contain one keyword.
+# "absent" groups: the failure is the ABSENCE of an attribute, so a top-3 NEGATIVE name must contain one keyword.
+# Matching: case-insensitive substring match on whole words.
+# If the planted patch colour changes from magenta (255, 0, 255), update the colour words via a DECISIONS entry BEFORE running.
+
+planted_pets:
+  "dog|patch":
+    type: present
+    keywords: [square, patch, sticker, block, box, rectangle, tile, magenta, pink, purple, violet]
+  "cat|no_patch":
+    type: absent
+    keywords: [square, patch, sticker, block, box, rectangle, tile, magenta, pink, purple, violet]
+
+waterbirds:
+  "landbird|water":
+    type: present
+    keywords: [water, lake, ocean, sea, beach, river, pond, swamp, boat, shore, wave, waves]
+  "waterbird|land":
+    type: present
+    keywords: [forest, tree, trees, bamboo, grass, woods, field, jungle, branch, branches, leaves]
+
+synthetic_shapes:
+  "square|dot":
+    type: present
+    keywords: [dot, spot, red]
+  "circle|no_dot":
+    type: absent
+    keywords: [dot, spot, red]
