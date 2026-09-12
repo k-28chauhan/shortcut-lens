@@ -1,0 +1,14 @@
+base: ../embed/clip_vitb32.yaml
+train:
+  arch: tiny_cnn
+  pretrained: null
+  epochs: 3
+  batch_size: 16
+  optimizer:
+    name: sgd
+    lr: 0.1
+    momentum: 0.9
+    weight_decay: 1.0e-4
+  seed: 0
+  num_workers: 0  # CI/smoke: no multiprocessing workers (docs/PLAN.md M3)
+device: cpu  # smoke always forces cpu -- MPS is not bit-stable run to run (CLAUDE.md §4)

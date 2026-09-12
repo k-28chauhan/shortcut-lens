@@ -197,3 +197,70 @@ a real one until M3 (D-031).
 **Check yourself:** why does each group in `group_metrics_table` get its own `make_rng` call
 (`make_rng(seed, "group_metrics_table", group_id)`) instead of one shared `Generator` for the whole
 table?
+
+## M3 — Training, embeddings, reliance and GPU-handoff plumbing
+
+### `src/shortcut_lens/models/backbones.py`
+**What it does:** `build_backbone()` wraps torchvision resnet18/50 (dropping the original `fc`) or
+a small conv net (`tiny_cnn`) in a `Backbone` with `.features()` (penultimate activations) and
+`.forward()` (logits).
+**Concept:** `.features()` always returns the same fixed-shape flattened trunk output regardless
+of `arch` -- swapping the `.head` (as last-layer retraining does in M7) never changes what
+`.features()` returns for the same input, which is what M7's frozen-backbone assumption depends on.
+**Read these functions:** `Backbone.features()`, `build_backbone()`.
+**Check yourself:** why does `tiny_cnn` ignore the `pretrained` argument entirely?
+
+### `src/shortcut_lens/training/erm.py`
+**What it does:** `train_erm()` -- the whole training loop, checkpointing, resume, and final
+per-split predictions in one function; `resolve_device()` (D-025's mps > cuda > cpu); `resolve_precision_mode()`.
+**Concept:** exact resume works without ever snapshotting RNG state: each epoch gets a brand new
+`DataLoader` built with a fresh `torch.Generator` seeded only by `(seed, epoch)`
+(`seeding.make_rng`), so epoch *k*'s shuffle order is a pure function of `(seed, epoch)` alone --
+resuming from any earlier checkpoint reproduces every later epoch identically, with nothing to
+restore. `resolve_precision_mode` never silently no-ops `amp=true` on non-CUDA devices: it logs a
+warning *and* the manifest records `precision_mode` (D-033), so a report is never wrong about what
+actually ran, even if nobody read the log.
+**Read these functions:** `train_erm()`, `_epoch_train_loader()`, `resolve_precision_mode()`.
+**Check yourself:** why does `train_erm` call `torch.manual_seed(config.seed)` unconditionally,
+even on a resumed run where the loaded checkpoint immediately overwrites the freshly-initialised
+weights anyway?
+
+### `src/shortcut_lens/embeddings/model_space.py`, `clip_space.py`, `store.py`, `cache.py`
+**What they do:** `embed_model_space()`/`embed_clip_space()` run a (already eval-transformed)
+dataset through a trunk and return `(vectors, example_ids)` in iteration order; `store.py`
+writes/reads them as float16 `.npy` + an aligned ids parquet; `cache.py` keys a CLIP embedding
+cache by `RenderKey` (plain data -- size/colour/alpha/base image/build seed), not by rho.
+**Concept:** CLIP needs its *own* preprocessing (different normalisation from the model-space
+ImageNet one), verified by running code to be a geometric no-op on this project's already-224x224
+images -- so the composition root attaches CLIP's own `preprocess` as the dataset's `transform`
+rather than reusing `data.transforms`. `RenderKey` duplicates a few fields from
+`build.planting.PatchSpec` as plain data instead of importing it, because this module is
+label-free and `build` is oracle (D-003) -- only `cli.py` ever turns a real `PatchSpec` into a
+`RenderKey`.
+**Read these functions:** `embed_clip_space()`, `cache.render_hash()`.
+**Check yourself:** why does the CLIP cache key on the *set* of render keys for a whole split,
+not per image?
+
+### `src/shortcut_lens/verification/reliance.py`
+**What it does:** `compute_reliance()` -- FR-R1's `R_net`, from a trained model and a joined
+predictions+oracle table.
+**Concept:** the add/remove directions' null-patch controls isolate reliance on the patch's
+*colour* from mere reliance on *something being painted there* (D-008's occlusion confound) --
+`add_null`/`remove_null` both use `build.planting.null_patch`, just starting from different base
+images (a never-patched dog vs. a cat's clean base after its real patch is stripped).
+**Read these functions:** `compute_reliance()`, `_render()`.
+**Check yourself:** why does `remove_null` call `null_patch()` on the *clean* base rather than on
+the cat's actually-patched image?
+
+### `src/shortcut_lens/artifacts.py` (`HFHubStore`), `src/shortcut_lens/jobs.py`
+**What they do:** `HFHubStore` resolves paths exactly like `LocalStore` and adds `push_run()`/
+`pull_run()` (one run's folder at a time, via `huggingface_hub`); `jobs.run_jobs()` runs an
+ordered list of `slens <stage> ...` commands via an injected `runner` callable, stopping at the
+first non-zero exit.
+**Concept:** `run_jobs` owns *sequencing and failure-stopping* only -- idempotency (skip a
+finished step) is deliberately left to each stage's own command, not tracked here, so there is
+exactly one place (`cli.py`'s per-stage config-hash/manifest check, or `train_erm`'s checkpoint)
+that can be wrong about whether a step is done.
+**Read these functions:** `HFHubStore.push_run()`, `jobs.run_jobs()`.
+**Check yourself:** what does `slens run-jobs jobs/h1_erm.yaml --dry-run` let a human check before
+any GPU time is spent?

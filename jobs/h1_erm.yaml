@@ -1,0 +1,47 @@
+# All 9 E1 runs (PLAN.md M3's frozen H1 spec): planted_pets rho=0.95 + control (3 seeds each,
+# train+both embeddings+reliance) and waterbirds (3 seeds, train+both embeddings -- reliance
+# (FR-R1) only applies to a shortcut we control, so it's skipped for waterbirds). Run via cloud
+# handoff H1 per the human's explicit choice this session (docs/STATUS.md) -- planted_pets alone
+# was measured cheap enough to run locally, but the human asked for cloud for all of it instead.
+jobs:
+  - {stage: train, config: configs/experiments/e1_pets_rho95.yaml, seed: 0}
+  - {stage: embed, config: configs/experiments/e1_pets_rho95.yaml, seed: 0, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_rho95.yaml, seed: 0, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_rho95.yaml, seed: 0}
+
+  - {stage: train, config: configs/experiments/e1_pets_rho95.yaml, seed: 1}
+  - {stage: embed, config: configs/experiments/e1_pets_rho95.yaml, seed: 1, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_rho95.yaml, seed: 1, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_rho95.yaml, seed: 1}
+
+  - {stage: train, config: configs/experiments/e1_pets_rho95.yaml, seed: 2}
+  - {stage: embed, config: configs/experiments/e1_pets_rho95.yaml, seed: 2, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_rho95.yaml, seed: 2, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_rho95.yaml, seed: 2}
+
+  - {stage: train, config: configs/experiments/e1_pets_control.yaml, seed: 0}
+  - {stage: embed, config: configs/experiments/e1_pets_control.yaml, seed: 0, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_control.yaml, seed: 0, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_control.yaml, seed: 0}
+
+  - {stage: train, config: configs/experiments/e1_pets_control.yaml, seed: 1}
+  - {stage: embed, config: configs/experiments/e1_pets_control.yaml, seed: 1, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_control.yaml, seed: 1, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_control.yaml, seed: 1}
+
+  - {stage: train, config: configs/experiments/e1_pets_control.yaml, seed: 2}
+  - {stage: embed, config: configs/experiments/e1_pets_control.yaml, seed: 2, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_control.yaml, seed: 2, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_control.yaml, seed: 2}
+
+  - {stage: train, config: configs/experiments/e1_waterbirds.yaml, seed: 0}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 0, space: model}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 0, space: clip}
+
+  - {stage: train, config: configs/experiments/e1_waterbirds.yaml, seed: 1}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 1, space: model}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 1, space: clip}
+
+  - {stage: train, config: configs/experiments/e1_waterbirds.yaml, seed: 2}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 2, space: model}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 2, space: clip}

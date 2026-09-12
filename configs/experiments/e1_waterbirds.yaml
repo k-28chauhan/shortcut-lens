@@ -1,0 +1,18 @@
+# Duplicates configs/datasets/waterbirds.yaml's dataset fields rather than basing off it, because
+# `base:` only supports one file (config.py's load_yaml_composed) and this file already bases off
+# ../train/erm_resnet50.yaml. If D-029's pinned checksums/revision ever change, update both files.
+base: ../train/erm_resnet50.yaml
+experiment_id: E1
+dataset: waterbirds
+hf_revision: e9856c710d0da2e4029d116cdd9d5fce7cc2bc80
+train_parquet:
+  url: "https://huggingface.co/api/datasets/grodino/waterbirds/parquet/default/train/0.parquet"
+  sha256: "575b462a17ae00e6a03b4f1833e3a5952e28492e278d3246186586c27a46367a"
+val_parquet:
+  url: "https://huggingface.co/api/datasets/grodino/waterbirds/parquet/default/validation/0.parquet"
+  sha256: "9ab73e8625fb5856e132ecbbe509f20829e5d59a9bd087b6cda86f5c478350fb"
+test_parquet:
+  url: "https://huggingface.co/api/datasets/grodino/waterbirds/parquet/default/test/0.parquet"
+  sha256: "fdb8696ce4db78c0ad48dd0120aaae40ce4330416d37fc41c9ea57faadc007f7"
+val_mode: balanced
+build_seed: 0

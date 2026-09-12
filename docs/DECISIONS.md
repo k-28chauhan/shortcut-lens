@@ -318,3 +318,81 @@ that gets its own DECISIONS entry rather than silently drifting from the documen
 instruction, this session).
 Alternatives: add the dataclasses to `types.py` now, matching the sketch exactly, and have
 `evaluation/core.py` take one -- rejected per the human's explicit call in this session.
+
+**D-032 · 2026-09-12 · ERM checkpoint selection's "average validation accuracy" means val_a+val_b combined.**
+Why: D-004 says selection uses "average validation accuracy," but the val split is itself divided
+into `val_a` (discovery) and `val_b` (confirmation) for the discover/confirm firewall (D-005) --
+neither PRD nor ARCHITECTURE says which of {val_a, val_b, val_a+val_b} "average validation
+accuracy" refers to, and model selection is a decision orthogonal to that firewall's purpose (it
+happens before discovery/confirmation exist at all, and doesn't compare a slice's own data against
+itself).
+Decision: `training/erm.py` computes `val_avg_acc` as accuracy over `val_a` and `val_b` examples
+combined (a single `ConcatDataset`) every epoch. Using only one half would make selection depend on
+an arbitrary stratified split rather than the whole held-out validation set.
+Alternatives: `val_a` only (rejected: throws away half the validation signal for no firewall
+benefit, since selection isn't discovery or confirmation); last-epoch selection instead of
+best-by-accuracy (noted in docs/PLAN.md M3 as a possible sensitivity check, not the default).
+
+**D-033 · 2026-09-12 · `amp=true` on non-CUDA: warn, don't silently no-op, don't raise; record `precision_mode` in the manifest.**
+Why: a shared `TrainConfig` (`amp: bool`) is meant to describe one experiment across both a local
+MPS run and a Kaggle/Colab CUDA run without two separate config files -- but AMP is a CUDA-specific
+optimisation (D-025: MPS branch is plain float32, no `GradScaler`). Silently ignoring `amp=true` on
+MPS/CPU would be an invisible behaviour change; raising would force a config fork per device. The
+human's call (this session): log a one-time warning *and* make the manifest itself state which
+precision mode actually ran, so a report is never wrong about what happened even if nobody read the
+log.
+Decision: `manifest.py`'s `Manifest.precision_mode: Literal["fp16_amp", "fp32", "bf16_autocast"] |
+None` records what actually ran; `training.erm.resolve_precision_mode(amp, device)` returns
+`"fp16_amp"` only when `amp and device == "cuda"`, else `"fp32"` (with a `logging.warning` if `amp`
+was requested but had no effect). `bf16_autocast` is reserved in the type for a possible future
+MPS/CPU autocast path; nothing currently produces it.
+Alternatives: silently no-op (rejected, human: invisible behaviour change); raise on a mismatched
+device (rejected, human: forces config duplication per device).
+
+**D-034 · 2026-09-12 · `Predictions`/`EmbeddingTable` dataclasses were not needed in M3 after all.**
+Why: D-031 (M2) deferred adding these ARCHITECTURE §3-sketched dataclasses to `types.py` until M3,
+on the expectation that `training/erm.py` and `embeddings/*.py` -- the modules that actually
+produce predictions and embeddings -- would need them. In practice, every producer
+(`training.erm._predict`, `embeddings.model_space.embed_model_space`,
+`embeddings.clip_space.embed_clip_space`) and every consumer
+(`evaluation.core.group_metrics_table`, `verification.reliance.compute_reliance`,
+`embeddings.store`) works entirely on plain `pandas.DataFrame`s (predictions) or
+`tuple[np.ndarray, list[str]]` (embeddings) -- matching the on-disk parquet/npy schemas directly,
+with no intermediate object that added clarity or caught a bug the schema checks
+(`embeddings.store.assert_aligned`, `evaluation.core`'s id-set check) didn't already catch.
+Decision: do not add `Predictions`/`EmbeddingTable` to `types.py`. This is reported as a finding,
+not silently dropped (CLAUDE.md §3 rule 6: investigate and report a plan that didn't pan out,
+rather than forcing it through) -- flagged to the human in the M3 summary.
+Revisit if: a later milestone (discovery/naming, M4-M5) finds itself repeatedly threading the same
+5+ arrays together and would clearly benefit from a named bundle -- at that point, add the
+dataclass where it is first actually needed, not preemptively.
+
+**D-035 · 2026-09-12 · Exact training resume via a fresh per-epoch `DataLoader`, not RNG-state snapshotting.**
+Why: `torch.utils.data.RandomSampler`'s shuffle order depends on its `Generator`'s *evolving*
+state across successive `__iter__()` calls, not just its initial seed -- reusing one `DataLoader`
+(and one `Generator`) across all epochs of a training run means epoch k's shuffle order depends on
+every draw made in epochs `0..k-1`, so resuming from a checkpoint would require snapshotting and
+restoring that generator's exact internal state, not just the model/optimizer.
+Decision: `training/erm.py` builds a brand-new `DataLoader` every epoch, with a fresh
+`torch.Generator` seeded by `seeding.make_rng(seed, "erm_shuffle", epoch)` -- deterministic in
+`(seed, epoch)` alone. Resuming needs to restore only the model and optimizer state dicts (already
+required for any resume); epoch k's shuffle order is reproduced automatically, with nothing RNG-
+related to save. Verified in `tests/unit/test_erm.py::test_resume_from_checkpoint_matches_uninterrupted_run`.
+Alternatives: snapshot/restore the `Generator`'s state in the checkpoint (rejected: more state to
+get right, and diverges from `seeding.py`'s "explicit generator per purpose" convention rather than
+extending it).
+
+**D-036 · 2026-09-12 · `reliance.parquet`'s row layout: 4 per-condition rows + 1 `R_net` summary row.**
+Why: ARCHITECTURE §4 names `reliance.parquet`'s columns (`direction`, `intervention`, `n`,
+`break_rate`, `lo`, `hi`, "plus `R_net` summary row") but not the exact row scheme -- how many rows,
+what values `direction`/`intervention` take for the summary row.
+Decision: one row per `(direction, intervention)` in `{add, remove} x {real, null}` (4 rows, each
+with its own single-condition bootstrap CI on that condition's break/no-break indicator), plus one
+`direction="net", intervention="r_net"` row whose `break_rate` is `R_net` itself, with a CI from a
+bootstrap that resamples the add-direction and remove-direction example sets independently each
+draw (not four independent per-condition bootstraps combined post hoc, which would ignore that
+`add_real`/`add_null` share the same underlying dogs and `remove_real`/`remove_null` share the same
+cats).
+Alternatives: report only the 4 condition rows and compute `R_net` downstream in `report/` --
+rejected, since `R_net` (with its own CI) is the headline number `slens reliance`'s CLI output and
+gate G3 need directly, not something every caller should have to re-derive.

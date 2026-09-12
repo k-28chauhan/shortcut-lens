@@ -18,7 +18,7 @@ import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import torch
 
@@ -35,9 +35,17 @@ _TRACKED_PACKAGES = (
     "numpy",
 )
 
+PrecisionMode = Literal["fp16_amp", "fp32", "bf16_autocast"]
+
 
 class Manifest(StrictBaseModel):
-    """One stage run's provenance record. See docs/ARCHITECTURE.md §5 for the field list."""
+    """One stage run's provenance record. See docs/ARCHITECTURE.md §5 for the field list.
+
+    `precision_mode` records the *actual* numeric behaviour a training run used (D-033) -- e.g. a
+    config's `amp: true` has no effect outside CUDA, so the manifest, not just a log line, must say
+    whether that run actually ran mixed precision. `None` for stages with no numeric-precision
+    concept (dataset builds).
+    """
 
     run_id: str
     stage: str
@@ -53,6 +61,7 @@ class Manifest(StrictBaseModel):
     hardware: dict[str, str]
     duration_s: float
     frozen_vocab_sha256: str | None = None
+    precision_mode: PrecisionMode | None = None
 
 
 def _git_commit(repo_root: Path | None = None) -> str:
@@ -90,10 +99,20 @@ def _package_versions() -> dict[str, str]:
     return versions
 
 
-def _hardware_info() -> dict[str, str]:
-    """Device name and CUDA version actually in use for this process."""
-    if torch.cuda.is_available():
+def _hardware_info(device: str | None = None) -> dict[str, str]:
+    """Device name and CUDA version actually in use for this process.
+
+    `device` is the *resolved* device a stage actually ran on (e.g. `training.erm.resolve_device`'s
+    output) -- not re-detected here, since a run forced onto CPU for correctness (CLAUDE.md §4)
+    must report `cpu` even on a CUDA/MPS-capable machine. `None` preserves the original
+    auto-detect-from-CUDA behaviour for stages with no device concept (dataset builds).
+    """
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    if device == "cuda":
         return {"device": torch.cuda.get_device_name(0), "cuda": str(torch.version.cuda)}
+    if device == "mps":
+        return {"device": f"mps ({platform.machine()})", "cuda": "none"}
     return {"device": "cpu", "cuda": "none"}
 
 
@@ -106,6 +125,8 @@ def new_manifest(
     inputs: dict[str, str],
     duration_s: float,
     frozen_vocab_sha256: str | None = None,
+    device: str | None = None,
+    precision_mode: PrecisionMode | None = None,
     repo_root: Path | None = None,
 ) -> Manifest:
     """Build a `Manifest` for the current run, filling in git/environment fields automatically.
@@ -125,9 +146,10 @@ def new_manifest(
         inputs=inputs,
         python=platform.python_version(),
         packages=_package_versions(),
-        hardware=_hardware_info(),
+        hardware=_hardware_info(device),
         duration_s=duration_s,
         frozen_vocab_sha256=frozen_vocab_sha256,
+        precision_mode=precision_mode,
     )
 
 

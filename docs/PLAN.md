@@ -111,25 +111,25 @@ paper for five p-values.
 
 **Goal:** trained models, predictions and embeddings for the headline configs, validated.
 
-- [ ] `models/backbones.py`: resnet18, resnet50 (verify torchvision weights enums), tiny CNN;
+- [x] `models/backbones.py`: resnet18, resnet50 (verify torchvision weights enums), tiny CNN;
       2-class head; `features()` returns penultimate activations.
-- [ ] `training/erm.py`: constant LR default, checkpoint every epoch, exact resume (on CPU, see
+- [x] `training/erm.py`: constant LR default, checkpoint every epoch, exact resume (on CPU, see
       below), `history.csv`, selection by average val accuracy, predictions for all splits.
       Device policy (D-025): `auto` → mps > cuda > cpu; CUDA branch uses AMP + GradScaler, MPS
       branch uses float32 with no GradScaler, CPU branch uses float32.
       `PYTORCH_ENABLE_MPS_FALLBACK=1` when invoked locally with `device=mps`. DataLoader
       `num_workers=0` for smoke/test/CI configs, small default on macOS otherwise.
-- [ ] `embeddings/model_space.py`, `embeddings/clip_space.py` (verify open_clip tags),
+- [x] `embeddings/model_space.py`, `embeddings/clip_space.py` (verify open_clip tags),
       `embeddings/store.py`, `embeddings/cache.py` (planted CLIP cache keyed by render spec).
       Verify open_clip's preprocessing is a no-op resize/crop on already-224×224 inputs (run code,
       not memory). `cache.py` implemented and unit-tested but not yet wired into `slens embed`'s
       CLIP path (no config currently varies rho for the same render set within one session, so the
       cache reuse it exists for isn't exercised until M6's sweep -- wiring deferred to then).
-- [ ] `verification/reliance.py` + `slens reliance`: `R_net` with CIs (PRD FR-R1).
-- [ ] `artifacts.py` HFHubStore; `slens pull-artifacts`; `slens validate-run`.
-- [ ] `jobs.py` + `slens run-jobs`; `notebooks/gpu_runner.ipynb`; `docs/RUNBOOK_GPU.md` updated with exact cells.
-- [ ] `make smoke`: synthetic build → train → embed (model space + a deterministic fake CLIP) on CPU.
-- [ ] `slens evaluate` (non-final, val splits) → draft T1.
+- [x] `verification/reliance.py` + `slens reliance`: `R_net` with CIs (PRD FR-R1).
+- [x] `artifacts.py` HFHubStore; `slens pull-artifacts`; `slens validate-run`.
+- [x] `jobs.py` + `slens run-jobs`; `notebooks/gpu_runner.ipynb`; `docs/RUNBOOK_GPU.md` updated with exact cells.
+- [x] `make smoke`: synthetic build → train → embed (model space + a deterministic fake CLIP) on CPU.
+- [x] `slens evaluate` (non-final, val splits) → draft T1.
 - [ ] **Handoff H1** (via `/handoff`): E1 configs — planted_pets ρ=0.95 size 32, seeds 0–2;
       planted_pets control ρ=0.5 size 32, seeds 0–2; waterbirds seeds 0–2. Train + both embeddings
       + reliance. First job measures seconds per epoch and writes it to the manifest.

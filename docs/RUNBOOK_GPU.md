@@ -1,7 +1,7 @@
 # RUNBOOK — GPU sessions (Kaggle or Colab)
 
 Claude Code prepares every GPU job; the human runs it. This runbook is the human's checklist.
-Claude Code refines the exact notebook cells in M3.
+`notebooks/gpu_runner.ipynb`'s cells are real as of M3 (see below for exactly what each does).
 
 ## One-time setup
 
@@ -17,22 +17,31 @@ Claude Code refines the exact notebook cells in M3.
 ## Every handoff
 
 1. In Claude Code, run `/handoff <name>`. It gives you: the commit hash, the jobs file
-   (e.g. `jobs/h1_erm.yaml`), the expected run ids, the expected outputs, and a time estimate.
+   (e.g. `jobs/h1_erm.yaml` -- see ARCHITECTURE §6 for the exact YAML shape: a flat, already-
+   expanded list of `{stage, config, seed, space}` steps, one `slens <stage> ...` call each), the
+   expected run ids, the expected outputs, and a time estimate.
 2. Make sure that commit is pushed to GitHub.
-3. Open `notebooks/gpu_runner.ipynb` on Kaggle/Colab. Set the two variables at the top:
-   `COMMIT = "<hash>"` and `JOBS = "jobs/<file>.yaml"`.
+3. Open `notebooks/gpu_runner.ipynb` on Kaggle/Colab. Set the four variables in its first code
+   cell: `COMMIT`, `JOBS`, `REPO_URL`, `HF_ARTIFACT_REPO`.
 4. Run the cells in order. They:
-   1. clone the repo and check out the commit;
-   2. install `uv` and sync the locked environment;
-   3. print `nvidia-smi` and the torch CUDA check;
-   4. log in to Hugging Face with `HF_TOKEN`;
-   5. run `slens run-jobs $JOBS` (resumes automatically if re-run after a disconnect);
-   6. upload finished run folders to the artefact repo.
-5. If the session disconnects: reopen, run the cells again. Completed stages are skipped and
-   training resumes from the last epoch checkpoint.
+   1. clone the repo and check out `COMMIT`;
+   2. install `uv` and `uv sync --extra cu126` (the CUDA-wheel extra, D-020);
+   3. print `nvidia-smi` and a `torch.cuda.is_available()` check;
+   4. log in to Hugging Face using the `HF_TOKEN` secret (never pasted into a cell);
+   5. run `uv run slens run-jobs $JOBS` (resumes automatically if this cell is re-run after a
+      disconnect -- each stage's own config-hash/manifest check, or `train`'s epoch checkpoint,
+      decides what is already done; nothing about progress is tracked by the notebook itself);
+   6. glob `artifacts/runs/*/manifest.json` for every run the jobs produced and
+      `HFHubStore(repo_id=HF_ARTIFACT_REPO).push_run(run_id)` each one to the Hub (whole run
+      folder, checkpoints included -- `slens gradcam`, M8, needs them back later).
+5. If the session disconnects: reopen, run the cells again from the top (cloning again is
+   cheap; step 5 above is what actually resumes).
 6. Back on your laptop: tell Claude Code the handoff finished. It runs
-   `slens pull-artifacts --run-ids …` and `slens validate-run <id>` for each run, records measured
-   timings in STATUS, and continues.
+   `slens pull-artifacts --run-ids <ids> --repo-id <repo>` and `slens validate-run <id>` for each
+   run, records measured timings in STATUS, and continues.
+7. Optionally, before spending GPU quota: `uv run slens run-jobs jobs/<file>.yaml --dry-run`
+   (locally, no GPU needed) prints the exact `slens <stage> ...` command for every step in the
+   jobs file, so you can sanity-check the plan first.
 
 ## Rules
 

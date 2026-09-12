@@ -1,0 +1,9 @@
+base: ../train/smoke_tiny_cnn.yaml
+experiment_id: smoke
+dataset: synthetic_shapes
+variant: dot
+rho: 0.95
+build_seed: 0
+n_train: 64
+n_val: 32
+n_test: 32

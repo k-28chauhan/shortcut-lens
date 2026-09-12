@@ -95,3 +95,24 @@ def test_validate_manifest_detects_missing_input_file(tmp_path: Path) -> None:
     problems = validate_manifest(manifest, run_dir=tmp_path)
 
     assert any("not found" in p for p in problems)
+
+
+def test_new_manifest_device_none_preserves_build_stage_behavior() -> None:
+    manifest = _make_manifest()
+    assert manifest.hardware["device"] == "cpu"
+    assert manifest.precision_mode is None
+
+
+def test_new_manifest_records_resolved_device_and_precision_mode() -> None:
+    manifest = new_manifest(
+        run_id="e1-planted_pets-abcd1234-s0",
+        stage="train",
+        config={"arch": "resnet50"},
+        seed=0,
+        inputs={},
+        duration_s=1.0,
+        device="mps",
+        precision_mode="fp32",
+    )
+    assert manifest.hardware["device"].startswith("mps")
+    assert manifest.precision_mode == "fp32"

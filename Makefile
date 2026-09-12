@@ -25,8 +25,7 @@ test-slow:
 	uv run pytest -m "slow or network"
 
 smoke:
-	@echo "'make smoke' is not implemented yet -- lands in M3 (see docs/PLAN.md)." >&2
-	@exit 1
+	uv run pytest tests/integration/test_smoke.py -v
 
 reproduce-cpu:
 	@echo "'make reproduce-cpu' is not implemented yet -- lands in M8 (see docs/PLAN.md)." >&2

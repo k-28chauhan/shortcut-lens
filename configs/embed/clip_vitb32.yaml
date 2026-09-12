@@ -1,0 +1,4 @@
+embed:
+  clip:
+    model: ViT-B-32
+    pretrained: laion2b_s34b_b79k  # verified real tag (D-023-adjacent verification, M3)

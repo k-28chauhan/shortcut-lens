@@ -124,6 +124,7 @@ module = [
   "torchvision.*",
   "sklearn.*",
   "scipy.*",
+  "open_clip.*",
 ]
 ignore_missing_imports = true
 

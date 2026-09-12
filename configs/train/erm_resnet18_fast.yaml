@@ -1,0 +1,17 @@
+base: ../embed/clip_vitb32.yaml
+train:
+  arch: resnet18
+  pretrained: IMAGENET1K_V1
+  epochs: 20
+  batch_size: 32
+  optimizer:
+    name: sgd
+    lr: 1.0e-3
+    momentum: 0.9
+    weight_decay: 1.0e-4
+  lr_schedule: constant
+  amp: true
+  select_by: val_avg_acc
+  seed: 0
+  num_workers: 2
+device: auto

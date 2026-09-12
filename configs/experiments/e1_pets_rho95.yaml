@@ -1,0 +1,9 @@
+base: ../train/erm_resnet50.yaml
+experiment_id: E1
+dataset: planted_pets
+rho: 0.95
+patch_size_px: 32
+patch_color: [255, 0, 255]
+patch_alpha: 1.0
+val_mode: balanced
+build_seed: 0
