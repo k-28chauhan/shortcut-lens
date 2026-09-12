@@ -5,14 +5,10 @@ The human reads it first when returning to the project.
 
 ## Current state
 
-- **Current milestone:** M1 — Data layer and firewall (in progress; waterbirds pending real data)
-- **Last updated:** 2026-09-12 (planting/synthetic_shapes/pets/splits/datasets/tables done and
-  tested; waterbirds.py code-complete but unverified against real data)
-- **Blocked on:** an unusually slow download from CodaLab for the Waterbirds tarball (~30-40KB/s;
-  ~470MB total). Everything else in M1 is done, tested and green. Once the download finishes:
-  fill in `tarball_sha256` in `configs/datasets/waterbirds.yaml` (currently `[TBD]`), run
-  `build_waterbirds()` against the real `metadata.csv`, confirm the frozen PRD §7 group counts
-  actually match, and add the `network`-marked test module for it (mirroring `tests/unit/test_pets.py`).
+- **Current milestone:** M1 — Data layer and firewall (gate G1 passed; awaiting human checkpoint)
+- **Last updated:** 2026-09-12 (all three datasets built, tested and verified against real data)
+- **Blocked on:** M1's human checkpoint only (see docs/PLAN.md M1: open the sample grids, read
+  `planting.py`/`pets.py`/`splits.py`, explain `val_a`/`val_b`/`test` and balanced vs realistic).
 - **Dev machine:** MacBook Air M4, 24 GB unified memory, MPS-capable (confirmed:
   `torch.backends.mps.is_available()` → `True` after `uv sync --extra cpu`, D-026). Local
   training/embedding uses MPS by default from M3 onward; cloud GPU handoffs (Kaggle/Colab T4)
@@ -21,10 +17,10 @@ The human reads it first when returning to the project.
 
 ## Next actions
 
-1. Claude Code: once the Waterbirds download finishes, pin its checksum, verify the build for
-   real, add its test module, tick the remaining M1 checkbox, and run gate G1.
-2. Human: nothing blocking yet -- M1's human checkpoint (sample grids, `planting.py`/`pets.py`/
-   `splits.py`) is best done once G1 passes in full, including Waterbirds.
+1. Human: M1 checkpoint -- run `slens data report --config configs/datasets/<name>.yaml` for each
+   dataset, open `reports/figures/samples_<dataset>.png`, confirm the patch/attribute and groups
+   look right. Read `planting.py`, `pets.py`, `splits.py`. Approve moving on to M2, or push back.
+2. Claude Code: once approved, `/next-milestone` for M2 (metrics and statistics core).
 
 ## Open questions for the human
 
@@ -35,7 +31,7 @@ The human reads it first when returning to the project.
 | Gate | Date | Result | Notes / link to evidence |
 |---|---|---|---|
 | G0 | 2026-09-12 | PASS | `make check` green locally (commit `8c8d0d7`): ruff, ruff format, mypy strict (76 files, 0 errors), lint-imports (1 contract kept), pytest (36 passed). `slens --help` lists all 16 ARCHITECTURE §7 commands plus `data report`. First push (commit `60dea6d`) failed CI at "Set up job": `astral-sh/setup-uv@v10` doesn't resolve (that action publishes no floating major tag, only exact tags). Fixed by pinning `@v10.1.0` (commit `40f88f6`); GitHub Actions run confirmed `success` (human-verified). |
-| G1 | pending | IN PROGRESS | synthetic_shapes and planted_pets fully built, tested (incl. against real downloaded pet images) and wired through `slens build`/`slens data report`; counts match expectations by construction (verified: train ρ within 0.5pp of target, test exactly 50/50, control ρ=0.5 near-zero signal). Waterbirds pending real-data verification (see "Blocked on" above). |
+| G1 | 2026-09-12 | PASS | All three dataset counts match expectations: synthetic_shapes and planted_pets by construction (train ρ within 0.5pp of target, test exactly ~50/50, ρ=0.5 control near-zero signal, verified against the real downloaded pet images); waterbirds against real data via a verified Hugging Face parquet mirror (D-029) -- all 12 frozen PRD §7 group-count cells match exactly across train/val/test. Sample grids generated via `slens data report` for all three. `make check` green (`pytest -m "not slow and not gpu and not network"` + the `network`-marked pets/waterbirds suites, both run for real this session). Human checkpoint (reading the sample grids and source files) still pending. |
 | G2 | | | |
 | G3 | | | |
 | G4 | | | |
@@ -91,3 +87,31 @@ The human reads it first when returning to the project.
   (device policy: mps > cuda > cpu), D-026 (macOS `cpu` extra already resolves an MPS-capable
   wheel).
 - **Open questions:** none. M0 fully closed; proceeding to M1.
+
+### M1 — Data layer and firewall (2026-09-12)
+
+- **What was built:** all three datasets, each returning `(public_table, oracle_table)` via a
+  `build_*` function: `build/synthetic_shapes.py` (procedural, no download), `build/pets.py`
+  (Oxford-IIIT Pet via torchvision, patched shortcut), `build/waterbirds.py` (natural benchmark,
+  no shortcut we control). Shared infrastructure: `build/planting.py` (patch mechanism + occlusion
+  control), `build/splits.py` (stratified half-split, class balance, two different "realistic
+  mode" tools depending on whether an attribute can be assigned or only observed),
+  `build/datasets.py` (`RenderedImageDataset`, the one `ImageDataset` implementation),
+  `build/tables.py` (writes `public.parquet`/`oracle.parquet`/manifest + the data report CSV and
+  sample grid PNG), `data/public.py` + `oracle/groups.py` (schema-validated table readers).
+  `slens build` and `slens data report` are wired up for real and idempotent by build hash.
+- **Files to read, in order:** `build/planting.py` → `build/splits.py` → `build/synthetic_shapes.py`
+  → `build/pets.py` → `build/waterbirds.py` → `build/datasets.py` → `build/tables.py` →
+  `oracle/groups.py` / `data/public.py`. See docs/CODE_TOUR.md's "M1 — Data" section.
+- **How to run:** `uv run slens build --config configs/datasets/<name>.yaml` then
+  `uv run slens data report --config configs/datasets/<name>.yaml` for `synthetic_shapes`,
+  `planted_pets` or `waterbirds`. `uv run pytest -m network` runs the real-data tests (downloads
+  Oxford-IIIT Pet the first time; Waterbirds' parquet files are already cached locally).
+- **Gate result:** G1 PASS -- see gate log above.
+- **Decisions made:** D-027 (Waterbirds: rejected the `wilds` PyPI package for an unmaintained
+  transitive dependency; first tried the official CodaLab tarball directly), D-028
+  (synthetic_shapes' `background` variant intentionally has no naming-eval keywords; its
+  discovery-only test is deferred to M4), D-029 (switched Waterbirds to a verified Hugging Face
+  parquet mirror after the CodaLab download proved impractically slow -- verified by exact match
+  of all 12 group-count cells against the frozen PRD §7 values, not just trusted).
+- **Open questions:** none blocking M2. Waiting on the human M1 checkpoint (see "Next actions").

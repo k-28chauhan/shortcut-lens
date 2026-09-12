@@ -226,13 +226,14 @@ on a checksum mismatch rather than silently accepting a wrong file. `metadata.cs
 directly from WILDS' `waterbirds_dataset.py` and `wilds_dataset.py` source, not assumed. Group
 counts per split are asserted against the frozen values in docs/PRD.md §7; a mismatch stops the
 build and reports the discrepancy rather than adapting to it (CLAUDE.md §3 rule 6).
-Status: the checksum is `[TBD]` in `configs/datasets/waterbirds.yaml` as of this entry -- the
-download is in progress on an unusually slow connection to CodaLab (~30-40KB/s, several hours for
-~470MB). Will be filled in, and the build re-verified end-to-end against real data, once it
-completes; `build_waterbirds()` itself is written and passes `mypy --strict` and `ruff` now.
+Status: superseded by D-029 -- the CodaLab download never became practical; the actual data source
+changed to a verified Hugging Face mirror. This entry is kept for why `wilds` itself was rejected
+(still true) and as the record of what was tried first.
 Alternatives: `wilds` PyPI package (rejected, see Why); a third-party Hugging Face mirror of
-Waterbirds (rejected: not the canonical source PRD §7 names, and provenance of a re-upload from an
-unverified account cannot be checked the way a checksum against the original tarball can).
+Waterbirds (rejected at the time: not the canonical source PRD §7 names, and provenance of a
+re-upload from an unverified account cannot be checked the way a checksum against the original
+tarball can -- revisited in D-029 once a concrete mirror could actually be checked against known
+ground truth, not just trusted).
 
 **D-028 · 2026-09-12 · synthetic_shapes' `background` variant has no naming evaluation, by design.**
 Why: `vocab/eval_keywords.yaml` is frozen (D-012) and only defines keywords for the `dot` variant's
@@ -252,3 +253,37 @@ not exist yet would just be dead code.
 Alternatives: extend `vocab/eval_keywords.yaml` now to cover `background` too (rejected: no
 naming experiment currently plans to use it, and touching a frozen file preemptively, without a
 concrete use, works against the point of freezing it early).
+
+**D-029 · 2026-09-12 · Waterbirds: switched to a verified Hugging Face parquet mirror (`grodino/waterbirds`).**
+Why: the CodaLab tarball download (D-027) proved impractically slow on this connection --
+~30-40KB/s, multiple hours for ~470MB, confirmed over two attempts (one silently truncated at 21MB
+because `curl | tail` masked a real failure exit code; a corrected retry still crawled). The human
+found `grodino/waterbirds` on Hugging Face and asked whether it would work. D-027 had already
+rejected third-party mirrors on the grounds that their provenance is unverifiable -- what changes
+here is that this specific mirror *was* verified, not just trusted: its three splits (train=4795,
+validation=1199, test=5794 rows) match WILDS' official split sizes exactly, and -- the real test --
+every one of the 12 (class x background) group-count cells across all three splits matches
+docs/PRD.md §7's frozen values exactly (e.g. val: landbird|land=467, landbird|water=466,
+waterbird|land=133, waterbird|water=133, down to the last image). That level of agreement across
+12 independent cells is very strong evidence this is a faithful repackaging of the identical
+official data (the mirror's own dataset card description is generic/inaccurate -- it describes a
+different, 80/20 train/val split scheme that does not match what the data actually contains --
+which is exactly why the counts were checked directly against known ground truth instead of taken
+on faith).
+Decision: `build/waterbirds.py` now downloads three checksummed parquet files (train/validation/test,
+Hugging Face's own split names) from `grodino/waterbirds` instead of one CodaLab tarball. Each
+file's URL and SHA-256, plus the mirror's git revision (`e9856c710d0da2e4029d116cdd9d5fce7cc2bc80`)
+for reference, are pinned in `configs/datasets/waterbirds.yaml` -- the SHA-256 checks, not the
+revision, are what actually gate the build against future drift. Images are embedded as JPEG bytes
+in the parquet `image` column; `build_waterbirds()` decodes and caches them to
+`builds/waterbirds/<hash>/images/` exactly like the other two datasets, so `RenderedImageDataset`
+needs no waterbirds-specific handling. Verified end-to-end: `build_waterbirds()` run against the
+real downloaded parquet files reproduces all 12 frozen group-count cells exactly (see
+`tests/unit/test_waterbirds.py`, network-marked) and the CLI (`slens build` / `slens data report`)
+completed in ~11 seconds total (vs. hours for the CodaLab path).
+Alternatives: keep waiting for / manually retrying the CodaLab download (rejected: no reason to
+believe the connection would improve, and the mirror is now independently verified); ask the human
+to download the CodaLab tarball from a different network (still an option if this mirror ever
+becomes unavailable, but unnecessary now).
+Revisit if: `grodino/waterbirds` is taken down or the pinned parquet files' checksums ever stop
+resolving -- fall back to the CodaLab tarball path preserved in D-027 / git history.

@@ -1,8 +1,18 @@
-# D-027: direct CodaLab tarball (not the `wilds` PyPI package). tarball_sha256 is [TBD] until the
-# download (in progress, very slow connection) finishes and the real checksum can be computed and
-# verified -- never fabricate a checksum (CLAUDE.md §3 rule 5).
+# D-027 (v2, see docs/DECISIONS.md): downloaded from a Hugging Face parquet mirror
+# (grodino/waterbirds) rather than the official CodaLab tarball -- CodaLab was impractically slow
+# on this connection. Every group count was verified to match docs/PRD.md §7 exactly before
+# switching. hf_revision is the mirror's git commit sha at verification time; the per-file sha256
+# below is what actually gates the build against any future change.
 dataset: waterbirds
-tarball_url: "https://worksheets.codalab.org/rest/bundles/0x505056d5cdea4e4eaa0e242cbfe2daa4/contents/blob/"
-tarball_sha256: "[TBD]"
+hf_revision: e9856c710d0da2e4029d116cdd9d5fce7cc2bc80
+train_parquet:
+  url: "https://huggingface.co/api/datasets/grodino/waterbirds/parquet/default/train/0.parquet"
+  sha256: "575b462a17ae00e6a03b4f1833e3a5952e28492e278d3246186586c27a46367a"
+val_parquet:
+  url: "https://huggingface.co/api/datasets/grodino/waterbirds/parquet/default/validation/0.parquet"
+  sha256: "9ab73e8625fb5856e132ecbbe509f20829e5d59a9bd087b6cda86f5c478350fb"
+test_parquet:
+  url: "https://huggingface.co/api/datasets/grodino/waterbirds/parquet/default/test/0.parquet"
+  sha256: "fdb8696ce4db78c0ad48dd0120aaae40ce4330416d37fc41c9ea57faadc007f7"
 val_mode: balanced
 build_seed: 0

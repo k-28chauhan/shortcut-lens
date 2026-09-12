@@ -61,11 +61,10 @@ why config hashes and manifests exist and what the firewall protects.
 - [x] `build/pets.py`: torchvision Oxford-IIIT Pet download; derive cat/dog (`binary-category`
       target type verified by reading torchvision source: `bin_classes=["Cat","Dog"]`, no fallback
       needed); preprocess to 224 JPEG cache; class balance; splits per PRD §7; patch assignment per split.
-- [ ] `build/waterbirds.py`: download (direct tarball, D-027 -- `wilds` rejected), parse `metadata.csv`
-      (columns/split codes verified from WILDS source), map official splits, `val_a`/`val_b` by class,
-      realistic mode. Code complete, `mypy --strict`/`ruff` clean; **not yet checked against real data**
-      -- checksum is `[TBD]` in `configs/datasets/waterbirds.yaml` pending an unusually slow download
-      from CodaLab (D-027). Finish verifying once the download completes.
+- [x] `build/waterbirds.py`: download (verified Hugging Face parquet mirror, D-029 -- `wilds`
+      rejected D-027, CodaLab tarball too slow), columns/split semantics matched to WILDS source,
+      `val_a`/`val_b` by class, realistic mode. Verified against real data: all 12 frozen PRD §7
+      group-count cells match exactly across train/val/test.
 - [x] `build/splits.py`: stratified 50/50 splitting by class; balanced/realistic assignment.
 - [x] `build/tables.py` + `slens build`: write `public.parquet`, `oracle.parquet`, build manifest.
 - [x] `build/datasets.py`: `RenderedImageDataset` (images rendered on the fly, returns only the three keys).

@@ -23,12 +23,7 @@ from shortcut_lens.artifacts import LocalStore, build_dir
 from shortcut_lens.build.pets import PlantedPetsConfig, build_planted_pets
 from shortcut_lens.build.synthetic_shapes import SyntheticShapesConfig, build_synthetic_shapes
 from shortcut_lens.build.tables import write_build_tables, write_data_report
-from shortcut_lens.build.waterbirds import (
-    WaterbirdsConfig,
-    build_waterbirds,
-    download_and_verify,
-    extract,
-)
+from shortcut_lens.build.waterbirds import WaterbirdsConfig, build_waterbirds
 from shortcut_lens.config import load_yaml_composed, short_hash
 from shortcut_lens.data.public import read_public_table
 from shortcut_lens.oracle.groups import read_oracle_table
@@ -120,18 +115,13 @@ def _resolve_and_build(
             )
     else:
         birds_cfg = WaterbirdsConfig.model_validate(build_config)
-        extract_dir = _CACHE_ROOT / "waterbirds_extracted"
+        image_root = directory / "images"
         if already_built:
             public = read_public_table(directory / "public.parquet")
             oracle = read_oracle_table(directory / "oracle.parquet")
-            image_root = extract_dir
         else:
-            tarball = download_and_verify(
-                _CACHE_ROOT / "downloads", birds_cfg.tarball_url, birds_cfg.tarball_sha256
-            )
-            image_root = extract(tarball, extract_dir)
             start = time.monotonic()
-            public, oracle = build_waterbirds(birds_cfg, image_root)
+            public, oracle = build_waterbirds(birds_cfg, _CACHE_ROOT / "downloads", image_root)
             write_build_tables(
                 store,
                 dataset,
