@@ -7,12 +7,10 @@ The human reads it first when returning to the project.
 
 - **Current milestone:** M3 — Training, embeddings, reliance and GPU-handoff plumbing. All
   locally-testable code done and green; gate G3 itself is blocked on real E1 results (below).
-- **Last updated:** 2026-09-12 (M3 code complete; Handoff H1 being prepared for the cloud per the
-  human's explicit choice -- a local E1 run was started, then stopped before real progress per
-  that same decision)
-- **Blocked on:** finishing H1 prep (commit + push, then `/handoff` gives the human the exact
-  cells to run) -- see "Next actions". M1's sample-grid gap remains open too, left as-is per
-  explicit human instruction.
+- **Last updated:** 2026-09-12 (M3 code committed at `d589f5d` and pushed; Handoff H1 prepared and
+  approved -- planted_pets half only, waterbirds deferred to a second cloud session)
+- **Blocked on:** the human running H1 on Kaggle/Colab (`jobs/h1_erm.yaml`, ~1-2h estimate) --
+  see "Next actions". M1's sample-grid gap remains open too, left as-is per explicit instruction.
 - **Dev machine:** MacBook Air M4, 24 GB unified memory, MPS-capable (confirmed:
   `torch.backends.mps.is_available()` → `True` after `uv sync --extra cpu`, D-026). Local
   training/embedding uses MPS by default from M3 onward; cloud GPU handoffs (Kaggle/Colab T4)
@@ -21,10 +19,11 @@ The human reads it first when returning to the project.
 
 ## Next actions
 
-1. Claude Code: finish preparing Handoff H1 -- push this session's commits, then run `/handoff
-   h1_erm` to give the human the commit hash, `jobs/h1_erm.yaml`, expected run ids/outputs, and a
-   time estimate (in progress).
-2. Human: run H1 on Kaggle/Colab per `docs/RUNBOOK_GPU.md` once `/handoff` hands off the details.
+1. Human: run Handoff H1 (planted_pets half, `jobs/h1_erm.yaml`, commit `d589f5d`) on Kaggle/Colab
+   per `docs/RUNBOOK_GPU.md`; report back when done so Claude Code can pull artefacts, validate,
+   and record measured timings.
+2. Human: once H1's planted_pets results look right, decide when to run the deferred waterbirds
+   half (`jobs/h1_waterbirds.yaml`) as a second cloud session.
 3. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below) -- not
    blocking M3's code, only its human checkpoint.
 4. Claude Code: M3 human checkpoint pending (read `erm.py`, explain mixed precision/checkpoint-
@@ -39,16 +38,18 @@ The human reads it first when returning to the project.
   `slens data report` for each of the three datasets -- `planted_pets` and `waterbirds` need
   network downloads) or defer. Not acted on yet per the human's instruction this session.
 
-- **E1 is going to the cloud (H1), not run locally.** Measured this session: one real epoch of
-  `configs/experiments/e1_pets_rho95.yaml` (ResNet-50, planted_pets ρ=0.95, MPS) took 142s
-  wall-clock (~26s one-time weight download, now cached), extrapolating to roughly ~24-30 min/run
-  for the real 20-epoch config -- cheap enough that planted_pets could have run locally, and a
-  `slens run-jobs` of all 6 planted_pets E1 runs was started locally on that basis. The human then
-  asked for cloud instead; the local run was stopped immediately (one partial epoch checkpoint
-  discarded, no meaningful compute spent) and H1 now covers all 9 E1 runs (both planted_pets
-  configs + waterbirds, 3 seeds each) via `jobs/h1_erm.yaml`. Waterbirds has not been separately
-  timed; its per-run cost in `/handoff`'s estimate is extrapolated from dataset size, not measured
-  -- flag if that estimate looks off once H1 is actually running.
+- **E1 is going to the cloud (H1), not run locally, and is split into two sessions.** Measured
+  this session: one real epoch of `configs/experiments/e1_pets_rho95.yaml` (ResNet-50, planted_pets
+  ρ=0.95, local MPS, fp32) took 142s wall-clock (~26s one-time weight download, now cached),
+  extrapolating to roughly ~24-30 min/run for the real 20-epoch config on MPS -- cheap enough that
+  planted_pets could have run locally, and a `slens run-jobs` of all 6 planted_pets E1 runs was
+  started locally on that basis. The human then asked for cloud instead; the local run was stopped
+  immediately (one partial epoch checkpoint discarded, no meaningful compute spent). `/handoff`
+  estimated ~3-3.5 GPU-hours for all 9 E1 runs together (extrapolated across MPS-fp32 -> cloud
+  T4-AMP hardware, not measured on the target hardware -- real uncertainty here); the human chose
+  to split it: `jobs/h1_erm.yaml` (planted_pets, 6 runs, ~1-2h estimate) now, `jobs/h1_waterbirds.yaml`
+  (3 runs, ~1.25-2.25h estimate, dataset-size-extrapolated, not separately timed) deferred to a
+  second session once pets results look right.
 
 ## Gate log
 
@@ -68,7 +69,7 @@ The human reads it first when returning to the project.
 
 | Handoff | Date | Commit | Jobs file | Run ids | Measured time | Validated |
 |---|---|---|---|---|---|---|
-| H1 | | | | | | |
+| H1 | 2026-09-12 | `d589f5d` | `jobs/h1_erm.yaml` (planted_pets, 6 runs); `jobs/h1_waterbirds.yaml` (waterbirds, 3 runs, deferred) | `E1-planted_pets-e7a2c0c8-s{0,1,2}` (ρ=0.95), `E1-planted_pets-a08bcaa2-s{0,1,2}` (control); `E1-waterbirds-a9772376-s{0,1,2}` (deferred half) | prepared: planted_pets ~1-2h estimate, human-approved; waterbirds deferred | not yet |
 | H2 | | | | | | |
 | H3 | | | | | | |
 

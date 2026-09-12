@@ -1,0 +1,15 @@
+# Deferred half of Handoff H1 (PLAN.md M3's frozen H1 spec includes waterbirds; split into its
+# own jobs file per the human's choice this session -- run planted_pets first, waterbirds later
+# once pets results look right). No reliance step: FR-R1 only applies to a shortcut we control.
+jobs:
+  - {stage: train, config: configs/experiments/e1_waterbirds.yaml, seed: 0}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 0, space: model}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 0, space: clip}
+
+  - {stage: train, config: configs/experiments/e1_waterbirds.yaml, seed: 1}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 1, space: model}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 1, space: clip}
+
+  - {stage: train, config: configs/experiments/e1_waterbirds.yaml, seed: 2}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 2, space: model}
+  - {stage: embed, config: configs/experiments/e1_waterbirds.yaml, seed: 2, space: clip}
