@@ -5,12 +5,12 @@ The human reads it first when returning to the project.
 
 ## Current state
 
-- **Current milestone:** M3 — Training, embeddings, reliance and GPU-handoff plumbing. All
-  locally-testable code done and green; gate G3 itself is blocked on real E1 results (below).
-- **Last updated:** 2026-09-12 (M3 code committed at `d589f5d` and pushed; Handoff H1 prepared and
-  approved -- planted_pets half only, waterbirds deferred to a second cloud session)
-- **Blocked on:** the human running H1 on Kaggle/Colab (`jobs/h1_erm.yaml`, ~1-2h estimate) --
-  see "Next actions". M1's sample-grid gap remains open too, left as-is per explicit instruction.
+- **Current milestone:** M3 — Training, embeddings, reliance and GPU-handoff plumbing. Code
+  complete and green; gate G3 has run for real and **failed at ρ=0.95** (D-037) -- not yet closed.
+- **Last updated:** 2026-09-13 (Handoff H1 planted_pets half completed, pulled, validated; gate G3
+  evaluated and failed; applying D-002's ρ=0.99 fallback, Handoff H1b prepared)
+- **Blocked on:** the human running Handoff H1b (`jobs/h1_pets_rho99.yaml`, ~20-25 min estimate,
+  needs a push first) -- see "Next actions". M1's sample-grid gap remains open too.
 - **Dev machine:** MacBook Air M4, 24 GB unified memory, MPS-capable (confirmed:
   `torch.backends.mps.is_available()` → `True` after `uv sync --extra cpu`, D-026). Local
   training/embedding uses MPS by default from M3 onward; cloud GPU handoffs (Kaggle/Colab T4)
@@ -19,14 +19,16 @@ The human reads it first when returning to the project.
 
 ## Next actions
 
-1. Human: run Handoff H1 (planted_pets half, `jobs/h1_erm.yaml`, commit `d589f5d`) on Kaggle/Colab
-   per `docs/RUNBOOK_GPU.md`; report back when done so Claude Code can pull artefacts, validate,
-   and record measured timings.
-2. Human: once H1's planted_pets results look right, decide when to run the deferred waterbirds
-   half (`jobs/h1_waterbirds.yaml`) as a second cloud session.
-3. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below) -- not
-   blocking M3's code, only its human checkpoint.
-4. Claude Code: M3 human checkpoint pending (read `erm.py`, explain mixed precision/checkpoint-
+1. Claude Code: commit and push `configs/experiments/e1_pets_rho99.yaml` +
+   `jobs/h1_pets_rho99.yaml` + this update (in progress).
+2. Human: run Handoff H1b (`jobs/h1_pets_rho99.yaml`) on Kaggle/Colab per `docs/RUNBOOK_GPU.md` at
+   the new commit -- reuse the same notebook, just change `JOBS`; report back when done.
+3. Claude Code: pull + validate H1b, re-evaluate gate G3 at ρ=0.99. If it still fails, escalate to
+   D-002's step 3 (CIFAR-10 cat vs dog base) rather than retrying ρ again.
+4. Human: once planted_pets passes G3 (or a decision is made on how to handle it), decide when to
+   run the deferred waterbirds half (`jobs/h1_waterbirds.yaml`).
+5. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below).
+6. Claude Code: M3 human checkpoint pending (read `erm.py`, explain mixed precision/checkpoint-
    resume/why selection uses average accuracy/what `R_net` measures) -- waiting on the human.
 
 ## Open questions for the human
@@ -38,18 +40,17 @@ The human reads it first when returning to the project.
   `slens data report` for each of the three datasets -- `planted_pets` and `waterbirds` need
   network downloads) or defer. Not acted on yet per the human's instruction this session.
 
-- **E1 is going to the cloud (H1), not run locally, and is split into two sessions.** Measured
-  this session: one real epoch of `configs/experiments/e1_pets_rho95.yaml` (ResNet-50, planted_pets
-  ρ=0.95, local MPS, fp32) took 142s wall-clock (~26s one-time weight download, now cached),
-  extrapolating to roughly ~24-30 min/run for the real 20-epoch config on MPS -- cheap enough that
-  planted_pets could have run locally, and a `slens run-jobs` of all 6 planted_pets E1 runs was
-  started locally on that basis. The human then asked for cloud instead; the local run was stopped
-  immediately (one partial epoch checkpoint discarded, no meaningful compute spent). `/handoff`
-  estimated ~3-3.5 GPU-hours for all 9 E1 runs together (extrapolated across MPS-fp32 -> cloud
-  T4-AMP hardware, not measured on the target hardware -- real uncertainty here); the human chose
-  to split it: `jobs/h1_erm.yaml` (planted_pets, 6 runs, ~1-2h estimate) now, `jobs/h1_waterbirds.yaml`
-  (3 runs, ~1.25-2.25h estimate, dataset-size-extrapolated, not separately timed) deferred to a
-  second session once pets results look right.
+- **Gate G3 failed at ρ=0.95; ρ=0.99 fallback in progress, decide what to do if it also fails.**
+  See gate log and D-037 for the full result and root-cause check (genuine finding, not a bug --
+  the pretrained ResNet-50 solves cat-vs-dog almost immediately, so the shortcut is never needed).
+  If ρ=0.99 (Handoff H1b) also fails to raise `R_net` above 0.20, D-002's next fallback step is
+  switching the base dataset to CIFAR-10 cat vs dog -- flagging now so it isn't a surprise later,
+  and because that would be a bigger change (a new build module, D-001's rationale revisited) worth
+  planning for rather than reacting to.
+
+- **A real Hugging Face token was pasted in plaintext into this chat session on 2026-09-13.** The
+  human was told to revoke and rotate it immediately on huggingface.co/settings/tokens. Confirm
+  this was done -- flagging here so it isn't forgotten by the next session.
 
 ## Gate log
 
@@ -58,7 +59,7 @@ The human reads it first when returning to the project.
 | G0 | 2026-09-12 | PASS | `make check` green locally (commit `8c8d0d7`): ruff, ruff format, mypy strict (76 files, 0 errors), lint-imports (1 contract kept), pytest (36 passed). `slens --help` lists all 16 ARCHITECTURE §7 commands plus `data report`. First push (commit `60dea6d`) failed CI at "Set up job": `astral-sh/setup-uv@v10` doesn't resolve (that action publishes no floating major tag, only exact tags). Fixed by pinning `@v10.1.0` (commit `40f88f6`); GitHub Actions run confirmed `success` (human-verified). |
 | G1 | 2026-09-12 | PASS | All three dataset counts match expectations: synthetic_shapes and planted_pets by construction (train ρ within 0.5pp of target, test exactly ~50/50, ρ=0.5 control near-zero signal, verified against the real downloaded pet images); waterbirds against real data via a verified Hugging Face parquet mirror (D-029) -- all 12 frozen PRD §7 group-count cells match exactly across train/val/test. Sample grids generated via `slens data report` for all three. `make check` green (`pytest -m "not slow and not gpu and not network"` + the `network`-marked pets/waterbirds suites, both run for real this session). Human checkpoint (reading the sample grids and source files) still pending. |
 | G2 | 2026-09-12 | PASS* | `make check` green (ruff, ruff format, mypy strict 76 files, lint-imports 1 contract kept, pytest 114 passed / 10 deselected). Full suite incl. slow + network: 124 passed, coverage 92% (≥85% target). `metrics.py`'s 9 functions (`accuracy`, `group_accuracy`, `worst_group_accuracy`, `mean_group_accuracy`, `weighted_average_accuracy`, `wga_gap`, `precision_at_k`, `slice_auroc`, `jaccard`, `recovery`) each carry a docstring citing PRD §12. *PASS is scoped to what docs/PLAN.md's own M2 task list assigns to M2 (`metrics.py`/`stats.py`/`evaluation/core.py`); 5 of PRD §12's 13 rows (Top-1 hit, Naming hit@3, `R_net`, Fix/break rate, Cost of labels) are derived quantities the M2 task list itself defers to `discovery_eval.py` (M4), `naming_eval.py` (M5), `verification/reliance.py` (M3) and `verification/verify.py` / `mitigation_eval.py` (M6/M7) -- flagging the literal "every metric in PRD §12" gate wording against that scoping rather than silently treating it as fully satisfied. Human checkpoint (read `metrics.py`/`stats.py`, re-derive BH by hand) still pending. |
-| G3 | 2026-09-12 | PENDING | All M3 code green: `make check` (ruff, ruff format, mypy strict 76 files, lint-imports 1 contract kept, pytest 156 passed/12 deselected); full suite incl. slow+network: 167+ passed, 90% coverage; `make smoke` (build→train→embed model+fake-CLIP) in ~2.3s. `slens train`/`embed`/`reliance`/`run-jobs`/`pull-artifacts`/`validate-run`/draft `evaluate` manually verified end-to-end on a real config. **Gate's own frozen thresholds (WGA gap, `R_net` on real E1 runs) not yet evaluable** -- no full E1 training run exists yet; E1 is going to Handoff H1 (cloud) per the human's choice, see the GPU handoff log and "Open questions" above. |
+| G3 | 2026-09-13 | FAIL (ρ=0.95); retrying ρ=0.99 | Code side: all green (`make check`, `make smoke`). Threshold side, H1 planted_pets results (`E1-planted_pets-e7a2c0c8-s{0,1,2}`, commit `d589f5d`, validated): ρ=0.95 mean WGA gap 1.7±0.9 pts (need ≥10) and `R_net` 0.011±0.003 (need ≥0.20) -- **fails badly**. Control (ρ=0.5) correctly passes: `R_net` 0.001±0.001 (need ≤0.05). Checked for bugs first (patch renders correctly, realised ρ matches config exactly) -- genuine result, not a pipeline bug: an ImageNet-pretrained ResNet-50 solves cat-vs-dog almost immediately (100% train acc by epoch 6), so the 32px patch never becomes necessary. Matches PRD §16 risk 1 exactly. D-037: applying D-002's fallback, ρ=0.99 (`configs/experiments/e1_pets_rho99.yaml`, `jobs/h1_pets_rho99.yaml`), human-approved. Gate thresholds unchanged. |
 | G4 | | | |
 | G5 | | | |
 | G6 | | | |
@@ -69,7 +70,8 @@ The human reads it first when returning to the project.
 
 | Handoff | Date | Commit | Jobs file | Run ids | Measured time | Validated |
 |---|---|---|---|---|---|---|
-| H1 | 2026-09-12 | `d589f5d` | `jobs/h1_erm.yaml` (planted_pets, 6 runs); `jobs/h1_waterbirds.yaml` (waterbirds, 3 runs, deferred) | `E1-planted_pets-e7a2c0c8-s{0,1,2}` (ρ=0.95), `E1-planted_pets-a08bcaa2-s{0,1,2}` (control); `E1-waterbirds-a9772376-s{0,1,2}` (deferred half) | prepared: planted_pets ~1-2h estimate, human-approved; waterbirds deferred | not yet |
+| H1 | 2026-09-12 | `d589f5d` | `jobs/h1_erm.yaml` (planted_pets ρ=0.95+control, 6 runs); `jobs/h1_waterbirds.yaml` (waterbirds, 3 runs, deferred) | `E1-planted_pets-e7a2c0c8-s{0,1,2}` (ρ=0.95), `E1-planted_pets-a08bcaa2-s{0,1,2}` (control); `E1-waterbirds-a9772376-s{0,1,2}` (deferred half) | **measured**: ~406s/run (~6.8 min), Tesla T4, `fp16_amp` -- much faster than the pre-run MPS-based estimate | yes, all 6 (`slens validate-run`) -- see gate G3 (ρ=0.95 failed; control passed as expected) |
+| H1b | 2026-09-13 | (pending push) | `jobs/h1_pets_rho99.yaml` (planted_pets ρ=0.99, 3 runs) | `E1-planted_pets-50f71fb8-s{0,1,2}` | prepared, ~7 min/run measured from H1 -> ~20-25 min total estimate | not yet |
 | H2 | | | | | | |
 | H3 | | | | | | |
 

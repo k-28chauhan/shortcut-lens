@@ -1,0 +1,12 @@
+# D-002/D-037 fallback: the rho=0.95 headline (e1_pets_rho95.yaml) failed gate G3 (WGA gap 1.7pts,
+# R_net 0.011, both far under threshold) -- kept as documented evidence, not overwritten. This
+# config raises rho to 0.99, the first step in D-002's frozen fallback ladder.
+base: ../train/erm_resnet50.yaml
+experiment_id: E1
+dataset: planted_pets
+rho: 0.99
+patch_size_px: 32
+patch_color: [255, 0, 255]
+patch_alpha: 1.0
+val_mode: balanced
+build_seed: 0

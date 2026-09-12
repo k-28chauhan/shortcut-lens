@@ -396,3 +396,29 @@ cats).
 Alternatives: report only the 4 condition rows and compute `R_net` downstream in `report/` --
 rejected, since `R_net` (with its own CI) is the headline number `slens reliance`'s CLI output and
 gate G3 need directly, not something every caller should have to re-derive.
+
+**D-037 · 2026-09-13 · Gate G3 failed at ρ=0.95 on planted_pets (real result, not a bug); applying D-002's ρ=0.99 fallback.**
+Why: Handoff H1 (`E1-planted_pets-e7a2c0c8-s{0,1,2}`, commit `d589f5d`) measured, mean over 3
+seeds: WGA gap 1.7±0.9 points (threshold ≥10) and `R_net` 0.011±0.003 (threshold ≥0.20) -- both
+fail badly. Control (ρ=0.5) correctly shows `R_net` 0.001±0.001 (threshold ≤0.05, passes), so the
+measurement pipeline itself is behaving as expected on a known-null case. Before treating this as
+a real result, checked for bugs per docs/PLAN.md's gate procedure: the patch renders correctly
+(exactly 1024 magenta pixels at the expected position/color) and the realised ρ matches the config
+exactly (cat has_patch rate 0.950, dog 0.050) -- no rendering or assignment bug. `history.csv`
+shows why: val accuracy is already ~93.5% after epoch 0 and train accuracy hits 100% by epoch 6 --
+an ImageNet-pretrained ResNet-50 solves cat-vs-dog almost immediately from real features alone, so
+a 32x32 patch (~2% of the image) never becomes necessary to exploit. This matches PRD §16's
+pre-registered risk 1 ("Pets model barely uses the patch") exactly -- not a surprise the project
+didn't plan for.
+Decision: apply D-002's fallback, step 2: re-run planted_pets at ρ=0.99 (`configs/experiments/
+e1_pets_rho99.yaml`), keeping `e1_pets_rho95.yaml` and its real (failing) results as documented
+evidence, not deleted or overwritten. Flagged to the human before proceeding (not applied
+unilaterally): raising ρ mainly helps when the real-feature signal is weak/ambiguous enough that a
+shortcut offers an easier gradient path; since the diagnosis here suggests the base task is simply
+already near-saturated regardless of ρ, ρ=0.99 may not resolve this on its own -- worth ruling out
+before moving to D-002's step 3 (CIFAR-10 cat vs dog base) regardless. Gate thresholds themselves
+are not changed.
+Also recorded: real cloud timing from H1 (Tesla T4, `fp16_amp`) was ~406s/run (~18s/epoch x 20 +
+overhead) -- much faster than the local-MPS-based estimate in the H1 handoff message, so re-runs
+are cheap (~7 min/run).
+Revisit if: ρ=0.99 also fails to raise `R_net` above 0.20 -- proceed to D-002's CIFAR-10 fallback.

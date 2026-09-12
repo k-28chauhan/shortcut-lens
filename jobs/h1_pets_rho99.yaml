@@ -1,0 +1,16 @@
+# D-002/D-037 fallback re-run: planted_pets at rho=0.99 (3 seeds), after rho=0.95 failed gate G3.
+jobs:
+  - {stage: train, config: configs/experiments/e1_pets_rho99.yaml, seed: 0}
+  - {stage: embed, config: configs/experiments/e1_pets_rho99.yaml, seed: 0, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_rho99.yaml, seed: 0, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_rho99.yaml, seed: 0}
+
+  - {stage: train, config: configs/experiments/e1_pets_rho99.yaml, seed: 1}
+  - {stage: embed, config: configs/experiments/e1_pets_rho99.yaml, seed: 1, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_rho99.yaml, seed: 1, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_rho99.yaml, seed: 1}
+
+  - {stage: train, config: configs/experiments/e1_pets_rho99.yaml, seed: 2}
+  - {stage: embed, config: configs/experiments/e1_pets_rho99.yaml, seed: 2, space: model}
+  - {stage: embed, config: configs/experiments/e1_pets_rho99.yaml, seed: 2, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_pets_rho99.yaml, seed: 2}
