@@ -122,6 +122,8 @@ module = [
   "pytorch_grad_cam.*",
   "gradio.*",
   "torchvision.*",
+  "sklearn.*",
+  "scipy.*",
 ]
 ignore_missing_imports = true
 

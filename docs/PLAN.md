@@ -90,11 +90,11 @@ val has balanced and realistic modes.
 
 **Goal:** trustworthy measurement code, fully tested on CPU, before any model exists.
 
-- [ ] `metrics.py`: accuracy, group accuracy, WGA, mean-group accuracy, weighted average accuracy,
+- [x] `metrics.py`: accuracy, group accuracy, WGA, mean-group accuracy, weighted average accuracy,
       precision@k, slice AUROC (wrap sklearn), Jaccard, recovery (NaN below a 2-point denominator).
-- [ ] `stats.py`: percentile bootstrap (seeded, optionally stratified by group), one-sided Fisher exact
+- [x] `stats.py`: percentile bootstrap (seeded, optionally stratified by group), one-sided Fisher exact
       test wrapper, Benjamini–Hochberg (own implementation), seed aggregation (mean, std).
-- [ ] `evaluation/core.py`: join predictions with oracle groups; tidy group-metrics table with CIs.
+- [x] `evaluation/core.py`: join predictions with oracle groups; tidy group-metrics table with CIs.
 
 **Tests:** property tests (Hypothesis): permutation invariance, bounds, `WGA ≤ mean-group ≤ max-group`;
 metric values equal sklearn/scipy references on random inputs; BH equals a hand-worked example and
@@ -122,7 +122,9 @@ paper for five p-values.
 - [ ] `embeddings/model_space.py`, `embeddings/clip_space.py` (verify open_clip tags),
       `embeddings/store.py`, `embeddings/cache.py` (planted CLIP cache keyed by render spec).
       Verify open_clip's preprocessing is a no-op resize/crop on already-224×224 inputs (run code,
-      not memory).
+      not memory). `cache.py` implemented and unit-tested but not yet wired into `slens embed`'s
+      CLIP path (no config currently varies rho for the same render set within one session, so the
+      cache reuse it exists for isn't exercised until M6's sweep -- wiring deferred to then).
 - [ ] `verification/reliance.py` + `slens reliance`: `R_net` with CIs (PRD FR-R1).
 - [ ] `artifacts.py` HFHubStore; `slens pull-artifacts`; `slens validate-run`.
 - [ ] `jobs.py` + `slens run-jobs`; `notebooks/gpu_runner.ipynb`; `docs/RUNBOOK_GPU.md` updated with exact cells.

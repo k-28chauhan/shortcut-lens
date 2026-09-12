@@ -5,10 +5,12 @@ The human reads it first when returning to the project.
 
 ## Current state
 
-- **Current milestone:** M1 — Data layer and firewall (gate G1 passed; awaiting human checkpoint)
-- **Last updated:** 2026-09-12 (all three datasets built, tested and verified against real data)
-- **Blocked on:** M1's human checkpoint only (see docs/PLAN.md M1: open the sample grids, read
-  `planting.py`/`pets.py`/`splits.py`, explain `val_a`/`val_b`/`test` and balanced vs realistic).
+- **Current milestone:** M2 — Metrics and statistics core (gate G2 passed; human checkpoint
+  approved 2026-09-12) -- moving on to M3.
+- **Last updated:** 2026-09-12 (M2 human checkpoint approved; M1's sample-grid gap left open,
+  not blocking, per explicit human instruction)
+- **Blocked on:** nothing for M2/M3 kickoff. M1's sample-grid gap remains an open item (see below)
+  but was explicitly left as-is rather than acted on.
 - **Dev machine:** MacBook Air M4, 24 GB unified memory, MPS-capable (confirmed:
   `torch.backends.mps.is_available()` → `True` after `uv sync --extra cpu`, D-026). Local
   training/embedding uses MPS by default from M3 onward; cloud GPU handoffs (Kaggle/Colab T4)
@@ -17,14 +19,18 @@ The human reads it first when returning to the project.
 
 ## Next actions
 
-1. Human: M1 checkpoint -- run `slens data report --config configs/datasets/<name>.yaml` for each
-   dataset, open `reports/figures/samples_<dataset>.png`, confirm the patch/attribute and groups
-   look right. Read `planting.py`, `pets.py`, `splits.py`. Approve moving on to M2, or push back.
-2. Claude Code: once approved, `/next-milestone` for M2 (metrics and statistics core).
+1. Claude Code: `/next-milestone` for M3 (training, embeddings, first GPU handoff) -- in progress.
+2. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below) -- not
+   blocking M3.
 
 ## Open questions for the human
 
-- (none yet)
+- **M1 sample grids not yet generated/committed, blocking G1's human checkpoint.** `reports/`,
+  `results/` and `artifacts/` are all currently empty in this checkout even though the G1 gate log
+  below says sample grids were generated in an earlier session -- they were never committed (or
+  the working directory changed since). Decide whether to regenerate now (`slens build` +
+  `slens data report` for each of the three datasets -- `planted_pets` and `waterbirds` need
+  network downloads) or defer. Not acted on yet per the human's instruction this session.
 
 ## Gate log
 
@@ -32,7 +38,7 @@ The human reads it first when returning to the project.
 |---|---|---|---|
 | G0 | 2026-09-12 | PASS | `make check` green locally (commit `8c8d0d7`): ruff, ruff format, mypy strict (76 files, 0 errors), lint-imports (1 contract kept), pytest (36 passed). `slens --help` lists all 16 ARCHITECTURE §7 commands plus `data report`. First push (commit `60dea6d`) failed CI at "Set up job": `astral-sh/setup-uv@v10` doesn't resolve (that action publishes no floating major tag, only exact tags). Fixed by pinning `@v10.1.0` (commit `40f88f6`); GitHub Actions run confirmed `success` (human-verified). |
 | G1 | 2026-09-12 | PASS | All three dataset counts match expectations: synthetic_shapes and planted_pets by construction (train ρ within 0.5pp of target, test exactly ~50/50, ρ=0.5 control near-zero signal, verified against the real downloaded pet images); waterbirds against real data via a verified Hugging Face parquet mirror (D-029) -- all 12 frozen PRD §7 group-count cells match exactly across train/val/test. Sample grids generated via `slens data report` for all three. `make check` green (`pytest -m "not slow and not gpu and not network"` + the `network`-marked pets/waterbirds suites, both run for real this session). Human checkpoint (reading the sample grids and source files) still pending. |
-| G2 | | | |
+| G2 | 2026-09-12 | PASS* | `make check` green (ruff, ruff format, mypy strict 76 files, lint-imports 1 contract kept, pytest 114 passed / 10 deselected). Full suite incl. slow + network: 124 passed, coverage 92% (≥85% target). `metrics.py`'s 9 functions (`accuracy`, `group_accuracy`, `worst_group_accuracy`, `mean_group_accuracy`, `weighted_average_accuracy`, `wga_gap`, `precision_at_k`, `slice_auroc`, `jaccard`, `recovery`) each carry a docstring citing PRD §12. *PASS is scoped to what docs/PLAN.md's own M2 task list assigns to M2 (`metrics.py`/`stats.py`/`evaluation/core.py`); 5 of PRD §12's 13 rows (Top-1 hit, Naming hit@3, `R_net`, Fix/break rate, Cost of labels) are derived quantities the M2 task list itself defers to `discovery_eval.py` (M4), `naming_eval.py` (M5), `verification/reliance.py` (M3) and `verification/verify.py` / `mitigation_eval.py` (M6/M7) -- flagging the literal "every metric in PRD §12" gate wording against that scoping rather than silently treating it as fully satisfied. Human checkpoint (read `metrics.py`/`stats.py`, re-derive BH by hand) still pending. |
 | G3 | | | |
 | G4 | | | |
 | G5 | | | |
@@ -115,3 +121,32 @@ The human reads it first when returning to the project.
   parquet mirror after the CodaLab download proved impractically slow -- verified by exact match
   of all 12 group-count cells against the frozen PRD §7 values, not just trusted).
 - **Open questions:** none blocking M2. Waiting on the human M1 checkpoint (see "Next actions").
+
+### M2 — Metrics and statistics core (2026-09-12)
+
+- **What was built:** `metrics.py` (pure numpy functions: `accuracy`, `group_accuracy`,
+  `worst_group_accuracy`, `mean_group_accuracy`, `weighted_average_accuracy`, `wga_gap`,
+  `precision_at_k`, `slice_auroc`, `jaccard`, `recovery` -- all fractions in [0,1], D-030);
+  `stats.py` (`percentile_bootstrap` seeded via an explicit `numpy.random.Generator` with optional
+  stratification, `fisher_exact_one_sided`, `benjamini_hochberg` from scratch, `aggregate_over_seeds`);
+  `evaluation/core.py` (`join_predictions_with_groups` -- strict id-set join, raises on any
+  mismatch -- and `group_metrics_table`, a tidy per-group accuracy table with bootstrap CIs, one
+  independent RNG stream per group). `evaluation/core.py` takes plain DataFrames rather than the
+  `Predictions` dataclass ARCHITECTURE §3 sketches, since nothing produces a real one until M3
+  (D-031). `make test-slow` now runs `pytest -m "slow or network"` (was a stub).
+- **Files to read, in order:** `metrics.py` → `stats.py` → `evaluation/core.py`. See
+  docs/CODE_TOUR.md's "M2 — Measurement" section.
+- **How to run:** `make check` (fast tests); `make test-slow` (adds the bootstrap-coverage
+  simulation and M1's network-marked dataset tests).
+- **Gate result:** G2 PASS* -- see gate log above (starred: literal PRD §12 coverage is scoped to
+  what M2's own task list assigns to this milestone; the other 5 rows land in M3/M4/M5/M6/M7).
+- **Decisions made:** D-030 (metrics are fractions in [0,1]; "points" = fraction × 100), D-031
+  (`evaluation/core.py` takes plain DataFrames; `Predictions`/`EmbeddingTable` deferred to
+  `types.py` in M3).
+- **Verified by running code (CLAUDE.md §5):** `sklearn.metrics.roc_auc_score` returns `NaN` with
+  an `UndefinedMetricWarning` (not an exception) for a single-class `y_true`; `scipy.stats.
+  fisher_exact(alternative="greater")`'s direction convention on a hand-built 2×2 table;
+  `statsmodels.stats.multitest.multipletests(method="fdr_bh")`'s q-values match the from-scratch
+  `benjamini_hochberg` reverse-running-minimum formula exactly.
+- **Open questions:** none new. Human checkpoint approved 2026-09-12. M1's sample-grid gap (see
+  "Open questions for the human" above) left open, explicitly not blocking, per the human.

@@ -287,3 +287,34 @@ to download the CodaLab tarball from a different network (still an option if thi
 becomes unavailable, but unnecessary now).
 Revisit if: `grodino/waterbirds` is taken down or the pinned parquet files' checksums ever stop
 resolving -- fall back to the CodaLab tarball path preserved in D-027 / git history.
+
+**D-030 · 2026-09-12 · `metrics.py` accuracy-like values are fractions in [0, 1], not percentages.**
+Why: PRD §12 and the frozen gate thresholds (docs/PLAN.md) describe some quantities in "points"
+(e.g. "WGA gap >= 10 points", recovery's "2-point denominator"), which is ambiguous without a
+stated convention -- it could mean percentage points of a 0-100 scale or of a 0-1 scale times 100.
+Decision: every function in `metrics.py` (`accuracy`, `group_accuracy`, `worst_group_accuracy`,
+`wga_gap`, etc.) returns a fraction in [0, 1]. "N points" anywhere in docs or gate thresholds means
+a fraction difference of N/100 on this scale (e.g. `recovery`'s NaN guard fires below a denominator
+of 0.02, i.e. "2 points"). Keeps every metric consistent with `sklearn`'s own convention
+(`accuracy_score` etc. return fractions), so no metric needs a silent x100/÷100 at its boundary.
+Alternatives: percentages (0-100 scale) throughout -- rejected, since it would diverge from
+`sklearn`/`scipy` return conventions and require unit conversions at every call site instead of
+just at the point where a human-readable "points" figure is reported.
+
+**D-031 · 2026-09-12 · `evaluation/core.py` (M2) takes plain DataFrames, not a `Predictions` dataclass.**
+Why: docs/ARCHITECTURE.md §3 sketches a `Predictions` dataclass, but nothing produces a real one
+until `training/erm.py` lands in M3 -- adding it to `types.py` now would be a speculative type with
+no producer, and the exact fields to include are easier to get right once M3 actually needs to
+build one (CLAUDE.md: "don't design for hypothetical future requirements").
+Decision: `join_predictions_with_groups`/`group_metrics_table` operate on plain `pandas.DataFrame`s
+matching the `predictions/{split}.parquet` schema (`example_id`, `y`, `y_hat`, ...) and the
+`oracle.parquet` schema (`example_id`, `group`, `group_name`, ...). The join requires the two
+frames to cover exactly the same `example_id` set (raises on any mismatch) rather than silently
+keeping the intersection, since a mismatch here means the caller forgot to filter one input to the
+right split -- exactly the kind of silent-drop bug docs/TESTING.md warns produces a
+plausible-looking wrong number. `Predictions`/`EmbeddingTable` are added to `types.py` in M3 when
+`training/erm.py` first produces one; if M3's real needs diverge from the ARCHITECTURE §3 sketch,
+that gets its own DECISIONS entry rather than silently drifting from the documented sketch (human
+instruction, this session).
+Alternatives: add the dataclasses to `types.py` now, matching the sketch exactly, and have
+`evaluation/core.py` take one -- rejected per the human's explicit call in this session.

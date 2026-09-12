@@ -22,8 +22,7 @@ test:
 	uv run pytest -m "not slow and not gpu and not network"
 
 test-slow:
-	@echo "'make test-slow' is not implemented yet -- lands starting M1 (see docs/PLAN.md)." >&2
-	@exit 1
+	uv run pytest -m "slow or network"
 
 smoke:
 	@echo "'make smoke' is not implemented yet -- lands in M3 (see docs/PLAN.md)." >&2

@@ -152,3 +152,48 @@ waterbirds) and "patch overlay" datasets (planted_pets) without a subclass for e
 respectively -- both validate required columns and reject duplicate `example_id`s on load.
 **Check yourself:** which one of these two modules would a bug in `discovery/` be *physically
 unable* to import, no matter how the code was written?
+
+## M2 — Measurement
+
+### `src/shortcut_lens/metrics.py`
+**What it does:** pure functions over plain numpy arrays -- `accuracy`, `group_accuracy`,
+`worst_group_accuracy`, `mean_group_accuracy`, `weighted_average_accuracy`, `wga_gap`,
+`precision_at_k`, `slice_auroc`, `jaccard`, `recovery`. Every metric returns a fraction in [0, 1]
+(D-030); "N points" elsewhere in the docs means a fraction difference of N/100 on this scale.
+**Concept:** this module never loads a group label itself -- every function takes `group` (or
+`target_membership`) as a plain array the caller already has, which is what lets the exact same
+functions serve both zones (label-free code computing plain `accuracy` for checkpoint selection,
+and `evaluation/core.py` computing `group_accuracy` with true groups). `precision_at_k` raises
+rather than silently shrinking `k` when too few examples are available, and `slice_auroc` returns
+`NaN` (not an exception) for a degenerate all-one-class slice -- both verified against
+`sklearn.metrics.roc_auc_score`'s own behaviour first (CLAUDE.md §5).
+**Read these functions:** `group_accuracy()`, `weighted_average_accuracy()`, `recovery()`.
+**Check yourself:** why does `weighted_average_accuracy` take the weights as a plain argument
+instead of computing them itself from group sizes?
+
+### `src/shortcut_lens/stats.py`
+**What it does:** `percentile_bootstrap` (seeded, optionally stratified), `fisher_exact_one_sided`,
+`benjamini_hochberg` (from scratch), `aggregate_over_seeds`.
+**Concept:** `percentile_bootstrap` takes an explicit `numpy.random.Generator`, not a raw seed --
+callers derive one with `seeding.make_rng(seed, *context_keys)` so e.g. `evaluation/core.py` can
+give every group its own independent resampling stream from one run seed. `benjamini_hochberg`'s
+q-value is a *reverse running minimum* of `p_(i) * m / i` over the sorted p-values -- that
+monotonicity is what makes it match `statsmodels.stats.multitest.multipletests(method="fdr_bh")`
+exactly (verified in `tests/unit/test_stats.py`), not just the reject/accept decision.
+**Read these functions:** `percentile_bootstrap()`, `benjamini_hochberg()`.
+**Check yourself:** re-derive the BH procedure on paper for `p = [0.01, 0.02, 0.03, 0.04, 0.20]`,
+`q = 0.05` -- which are rejected, and what are their q-values? (Compare against
+`test_benjamini_hochberg_matches_hand_worked_example`.)
+
+### `src/shortcut_lens/evaluation/core.py`
+**What it does:** `join_predictions_with_groups` (strict id-set join) and `group_metrics_table`
+(tidy per-group accuracy with bootstrap CIs).
+**Concept:** the join deliberately raises if `predictions` and `oracle_groups` don't cover exactly
+the same `example_id` set, rather than keeping the intersection -- a silent partial join is exactly
+the kind of bug that produces a plausible-looking wrong number (docs/TESTING.md). Works over plain
+DataFrames rather than the `Predictions` dataclass ARCHITECTURE §3 sketches, since nothing produces
+a real one until M3 (D-031).
+**Read these functions:** `join_predictions_with_groups()`, `group_metrics_table()`.
+**Check yourself:** why does each group in `group_metrics_table` get its own `make_rng` call
+(`make_rng(seed, "group_metrics_table", group_id)`) instead of one shared `Generator` for the whole
+table?
