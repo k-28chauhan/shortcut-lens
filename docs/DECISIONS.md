@@ -208,3 +208,47 @@ this machine after `uv sync --extra cpu` -- the `cpu` extra's wheel is confirmed
 without any further install changes.
 Alternatives: none -- this confirms the existing D-020 extras setup already covers this machine
 correctly, now that the dev machine's real hardware is known.
+
+**D-027 · 2026-09-12 · Waterbirds: direct CodaLab tarball, not the `wilds` PyPI package.**
+Why: `wilds` (latest PyPI release 2.0.0) pulls in `ogb` (Open Graph Benchmark) and `outdated` (an
+unmaintained package, no release in years) as transitive dependencies just to load one dataset out
+of WILDS' many -- disproportionate for this project's minimal-dependency style (CLAUDE.md §5), and
+WILDS' own `WaterbirdsDataset` publishes no checksum for its download (`compressed_size: None`),
+so a client-side integrity check would be needed either way.
+Decision: `build/waterbirds.py` downloads
+`https://worksheets.codalab.org/rest/bundles/0x505056d5cdea4e4eaa0e242cbfe2daa4/contents/blob/`
+directly (the exact URL WILDS' own `waterbirds_dataset.py` source uses) and verifies its SHA-256
+against a value pinned in `configs/datasets/waterbirds.yaml`, computed and verified by this project
+since WILDS publishes none. `download_and_verify()` skips the download if a verified copy is
+already cached (outside the repo, `~/.cache/shortcut-lens/downloads/`), and deletes + re-downloads
+on a checksum mismatch rather than silently accepting a wrong file. `metadata.csv`'s columns
+(`y`, `place`, `img_filename`, `split`) and split encoding (`train=0, val=1, test=2`) were read
+directly from WILDS' `waterbirds_dataset.py` and `wilds_dataset.py` source, not assumed. Group
+counts per split are asserted against the frozen values in docs/PRD.md §7; a mismatch stops the
+build and reports the discrepancy rather than adapting to it (CLAUDE.md §3 rule 6).
+Status: the checksum is `[TBD]` in `configs/datasets/waterbirds.yaml` as of this entry -- the
+download is in progress on an unusually slow connection to CodaLab (~30-40KB/s, several hours for
+~470MB). Will be filled in, and the build re-verified end-to-end against real data, once it
+completes; `build_waterbirds()` itself is written and passes `mypy --strict` and `ruff` now.
+Alternatives: `wilds` PyPI package (rejected, see Why); a third-party Hugging Face mirror of
+Waterbirds (rejected: not the canonical source PRD §7 names, and provenance of a re-upload from an
+unverified account cannot be checked the way a checksum against the original tarball can).
+
+**D-028 · 2026-09-12 · synthetic_shapes' `background` variant has no naming evaluation, by design.**
+Why: `vocab/eval_keywords.yaml` is frozen (D-012) and only defines keywords for the `dot` variant's
+groups (`square|dot`, `circle|no_dot`); adding `background`-variant keywords now, before any
+naming result exists, would itself require the frozen-file change process (DECISIONS + human
+approval, see `vocab/README.md`) for a variant that is not part of the pre-registered CI
+integration gate (docs/TESTING.md's gate uses `dot` only) or any pre-registered experiment in
+docs/EXPERIMENTS.md.
+Decision: build both `dot` and `background` variants in M1 as planned (PLAN.md's M1 task list),
+but `background`'s groups (`circle|tint`/`square|no_tint`-style names) are deliberately left out
+of `vocab/eval_keywords.yaml`. It remains fully usable for discovery/confirmation (which need no
+vocabulary), just not for naming hit@3 scoring. A discovery-only integration test for the
+`background` variant (top confirmed slice precision@25 >= 0.8 for the tinted minority group,
+analogous to the frozen `dot`-variant CI gate) is added to docs/PLAN.md's M4 task list rather than
+written now, since `discovery/` does not exist until M4 -- writing a test against code that does
+not exist yet would just be dead code.
+Alternatives: extend `vocab/eval_keywords.yaml` now to cover `background` too (rejected: no
+naming experiment currently plans to use it, and touching a frozen file preemptively, without a
+concrete use, works against the point of freezing it early).

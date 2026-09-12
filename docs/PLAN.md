@@ -56,18 +56,21 @@ why config hashes and manifests exist and what the firewall protects.
 
 **Goal:** all three datasets built reproducibly, with labels split into public and oracle tables.
 
-- [ ] `build/planting.py`: `PatchSpec`, `add_patch`, `null_patch`, deterministic positions; remove = re-render.
-- [ ] `build/synthetic_shapes.py`: circle vs square, attribute variants `dot` and `background`, params ρ, n, seed.
-- [ ] `build/pets.py`: torchvision Oxford-IIIT Pet download; derive cat/dog (verify the `binary-category`
-      target type; fallback: species from the dataset annotation list, or capitalised filenames = cats);
-      preprocess to 224 JPEG cache; class balance; splits per PRD §7; patch assignment per split.
-- [ ] `build/waterbirds.py`: download (WILDS or direct tarball — decide, log), parse `metadata.csv`
-      (verify columns), map official splits, `val_a`/`val_b` by class, realistic mode.
-- [ ] `build/splits.py`: stratified 50/50 splitting by class; balanced/realistic assignment.
-- [ ] `build/tables.py` + `slens build`: write `public.parquet`, `oracle.parquet`, build manifest.
-- [ ] `build/datasets.py`: `RenderedImageDataset` (images rendered on the fly, returns only the three keys).
-- [ ] `data/public.py`, `data/transforms.py`; `oracle/groups.py`.
-- [ ] `slens data report`: `results/data_counts_<dataset>.csv` and `reports/figures/samples_<dataset>.png`
+- [x] `build/planting.py`: `PatchSpec`, `add_patch`, `null_patch`, deterministic positions; remove = re-render.
+- [x] `build/synthetic_shapes.py`: circle vs square, attribute variants `dot` and `background`, params ρ, n, seed.
+- [x] `build/pets.py`: torchvision Oxford-IIIT Pet download; derive cat/dog (`binary-category`
+      target type verified by reading torchvision source: `bin_classes=["Cat","Dog"]`, no fallback
+      needed); preprocess to 224 JPEG cache; class balance; splits per PRD §7; patch assignment per split.
+- [ ] `build/waterbirds.py`: download (direct tarball, D-027 -- `wilds` rejected), parse `metadata.csv`
+      (columns/split codes verified from WILDS source), map official splits, `val_a`/`val_b` by class,
+      realistic mode. Code complete, `mypy --strict`/`ruff` clean; **not yet checked against real data**
+      -- checksum is `[TBD]` in `configs/datasets/waterbirds.yaml` pending an unusually slow download
+      from CodaLab (D-027). Finish verifying once the download completes.
+- [x] `build/splits.py`: stratified 50/50 splitting by class; balanced/realistic assignment.
+- [x] `build/tables.py` + `slens build`: write `public.parquet`, `oracle.parquet`, build manifest.
+- [x] `build/datasets.py`: `RenderedImageDataset` (images rendered on the fly, returns only the three keys).
+- [x] `data/public.py`, `data/transforms.py`; `oracle/groups.py`.
+- [x] `slens data report`: `results/data_counts_<dataset>.csv` and `reports/figures/samples_<dataset>.png`
       (a grid with one row per group).
 
 **Tests:** `remove(add(x)) == x` exactly; positions in bounds and deterministic; null patch differs
@@ -166,6 +169,9 @@ why selection uses average accuracy, and what `R_net` measures.
 `failure_direction` recovers a planted direction in synthetic Gaussian data; under a null (random
 labels of "incorrect") the false-confirmation rate ≤ `fdr_q` in simulation; **CI integration gate:**
 synthetic_shapes `dot` ρ=0.95 with the tiny CNN → top confirmed slice precision@25 ≥ 0.8.
+Discovery-only integration test for the `background` variant (D-028): top confirmed slice
+precision@25 ≥ 0.8 for the tinted minority group -- no naming assertion, since `background` has no
+frozen naming keywords by design. Mark `slow` if it pushes CI past budget.
 
 **Gate G4 (frozen thresholds):**
 - planted_pets ρ=0.95 size 32, balanced val, in ≥ 2 of 3 seeds: for class *dog*, the top-ranked

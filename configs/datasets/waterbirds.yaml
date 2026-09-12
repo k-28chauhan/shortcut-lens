@@ -1,0 +1,8 @@
+# D-027: direct CodaLab tarball (not the `wilds` PyPI package). tarball_sha256 is [TBD] until the
+# download (in progress, very slow connection) finishes and the real checksum can be computed and
+# verified -- never fabricate a checksum (CLAUDE.md §3 rule 5).
+dataset: waterbirds
+tarball_url: "https://worksheets.codalab.org/rest/bundles/0x505056d5cdea4e4eaa0e242cbfe2daa4/contents/blob/"
+tarball_sha256: "[TBD]"
+val_mode: balanced
+build_seed: 0

@@ -12,10 +12,28 @@ Pipeline position: composition root. Entry point: `slens <command>`.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Annotated
 
+import pandas as pd
 import typer
+
+from shortcut_lens.artifacts import LocalStore, build_dir
+from shortcut_lens.build.pets import PlantedPetsConfig, build_planted_pets
+from shortcut_lens.build.synthetic_shapes import SyntheticShapesConfig, build_synthetic_shapes
+from shortcut_lens.build.tables import write_build_tables, write_data_report
+from shortcut_lens.build.waterbirds import (
+    WaterbirdsConfig,
+    build_waterbirds,
+    download_and_verify,
+    extract,
+)
+from shortcut_lens.config import load_yaml_composed, short_hash
+from shortcut_lens.data.public import read_public_table
+from shortcut_lens.oracle.groups import read_oracle_table
+
+_CACHE_ROOT = Path.home() / ".cache" / "shortcut-lens"
 
 app = typer.Typer(
     name="slens",
@@ -38,16 +56,119 @@ def _not_implemented(command: str, milestone: str) -> None:
     raise typer.Exit(code=1)
 
 
+def _resolve_and_build(
+    config_path: Path, force: bool
+) -> tuple[str, str, pd.DataFrame, pd.DataFrame, Path]:
+    """Load a dataset config and build it, or reuse an existing build with a matching hash.
+
+    Returns `(dataset, build_hash, public_table, oracle_table, image_root)`. `image_root` is
+    where `image_ref` values resolve: the build's own image cache for synthetic_shapes/
+    planted_pets, or the extracted download directory for waterbirds.
+    """
+    raw = load_yaml_composed(config_path)
+    dataset = raw.get("dataset")
+    if dataset not in {"synthetic_shapes", "planted_pets", "waterbirds"}:
+        raise typer.BadParameter(
+            "config must set dataset: one of synthetic_shapes/planted_pets/waterbirds, "
+            f"got {dataset!r}"
+        )
+    build_config = {k: v for k, v in raw.items() if k != "dataset"}
+    build_hash = short_hash(build_config)
+
+    store = LocalStore()
+    directory = build_dir(store, dataset, build_hash)
+    already_built = not force and (directory / "public.parquet").exists()
+
+    if dataset == "synthetic_shapes":
+        shapes_cfg = SyntheticShapesConfig.model_validate(build_config)
+        image_root = directory / "images"
+        if already_built:
+            public = read_public_table(directory / "public.parquet")
+            oracle = read_oracle_table(directory / "oracle.parquet")
+        else:
+            start = time.monotonic()
+            public, oracle = build_synthetic_shapes(shapes_cfg, image_root)
+            write_build_tables(
+                store,
+                dataset,
+                build_hash,
+                public,
+                oracle,
+                config=build_config,
+                seed=shapes_cfg.build_seed,
+                duration_s=time.monotonic() - start,
+            )
+    elif dataset == "planted_pets":
+        pets_cfg = PlantedPetsConfig.model_validate(build_config)
+        image_root = directory / "images"
+        if already_built:
+            public = read_public_table(directory / "public.parquet")
+            oracle = read_oracle_table(directory / "oracle.parquet")
+        else:
+            torchvision_root = _CACHE_ROOT / "torchvision"
+            start = time.monotonic()
+            public, oracle = build_planted_pets(pets_cfg, torchvision_root, image_root)
+            write_build_tables(
+                store,
+                dataset,
+                build_hash,
+                public,
+                oracle,
+                config=build_config,
+                seed=pets_cfg.build_seed,
+                duration_s=time.monotonic() - start,
+            )
+    else:
+        birds_cfg = WaterbirdsConfig.model_validate(build_config)
+        extract_dir = _CACHE_ROOT / "waterbirds_extracted"
+        if already_built:
+            public = read_public_table(directory / "public.parquet")
+            oracle = read_oracle_table(directory / "oracle.parquet")
+            image_root = extract_dir
+        else:
+            tarball = download_and_verify(
+                _CACHE_ROOT / "downloads", birds_cfg.tarball_url, birds_cfg.tarball_sha256
+            )
+            image_root = extract(tarball, extract_dir)
+            start = time.monotonic()
+            public, oracle = build_waterbirds(birds_cfg, image_root)
+            write_build_tables(
+                store,
+                dataset,
+                build_hash,
+                public,
+                oracle,
+                config=build_config,
+                seed=birds_cfg.build_seed,
+                duration_s=time.monotonic() - start,
+            )
+
+    return dataset, build_hash, public, oracle, image_root
+
+
+ForceOption = Annotated[
+    bool, typer.Option("--force", help="Rebuild even if a matching cached build exists.")
+]
+
+
 @app.command()
-def build(config: ConfigOption) -> None:
+def build(config: ConfigOption, force: ForceOption = False) -> None:
     """Construct dataset tables and caches (oracle zone). See `build/tables.py`."""
-    _not_implemented("build", "M1")
+    dataset, build_hash, public, _, _ = _resolve_and_build(config, force)
+    typer.echo(
+        f"Built {dataset} ({build_hash}): {len(public)} examples "
+        f"-> artifacts/builds/{dataset}/{build_hash}/"
+    )
 
 
 @data_app.command("report")
-def data_report(config: ConfigOption) -> None:
+def data_report(config: ConfigOption, force: ForceOption = False) -> None:
     """Write group counts and a sample image grid for a dataset (oracle zone)."""
-    _not_implemented("data report", "M1")
+    dataset, _, public, oracle, image_root = _resolve_and_build(config, force)
+    counts_path, figure_path = write_data_report(
+        public, oracle, image_root, dataset, Path("results"), Path("reports") / "figures"
+    )
+    typer.echo(f"Wrote {counts_path} and {figure_path}")
 
 
 @app.command()

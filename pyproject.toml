@@ -56,6 +56,7 @@ dev = [
   "pre-commit==4.6.2",
   "statsmodels==0.15.0",
   "types-PyYAML==6.0.12.20260906",
+  "pandas-stubs==3.0.5.260730",
 ]
 
 [build-system]
@@ -120,6 +121,7 @@ module = [
   "umap.*",
   "pytorch_grad_cam.*",
   "gradio.*",
+  "torchvision.*",
 ]
 ignore_missing_imports = true
 
