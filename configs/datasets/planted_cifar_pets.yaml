@@ -1,0 +1,8 @@
+# D-002/D-037 fallback dataset: CIFAR-10 cat vs dog, same planting code as planted_pets.
+dataset: planted_cifar_pets
+rho: 0.95
+patch_size_px: 32
+patch_color: [255, 0, 255]
+patch_alpha: 1.0
+val_mode: balanced
+build_seed: 0

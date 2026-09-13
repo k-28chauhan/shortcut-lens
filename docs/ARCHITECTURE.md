@@ -101,6 +101,7 @@ shortcut-lens/
 │   │   ├── planting.py            # PatchSpec, add/remove/null patch, deterministic positions
 │   │   ├── synthetic_shapes.py
 │   │   ├── pets.py
+│   │   ├── cifar_pets.py          # D-002/D-037 fallback: CIFAR-10 cat vs dog, same planting code
 │   │   ├── waterbirds.py
 │   │   ├── splits.py              # val_a/val_b, balanced/realistic modes
 │   │   ├── tables.py              # write public/oracle parquet + build manifest

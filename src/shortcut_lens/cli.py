@@ -23,6 +23,7 @@ import torch
 import typer
 
 from shortcut_lens.artifacts import HFHubStore, LocalStore, build_dir, run_dir
+from shortcut_lens.build.cifar_pets import CifarPetsConfig, build_cifar_pets
 from shortcut_lens.build.datasets import RenderedImageDataset
 from shortcut_lens.build.pets import PlantedPetsConfig, build_planted_pets
 from shortcut_lens.build.planting import PatchSpec
@@ -86,10 +87,10 @@ def _resolve_and_build(
     """
     raw = load_yaml_composed(config_path)
     dataset = raw.get("dataset")
-    if dataset not in {"synthetic_shapes", "planted_pets", "waterbirds"}:
+    if dataset not in {"synthetic_shapes", "planted_pets", "waterbirds", "planted_cifar_pets"}:
         raise typer.BadParameter(
-            "config must set dataset: one of synthetic_shapes/planted_pets/waterbirds, "
-            f"got {dataset!r}"
+            "config must set dataset: one of synthetic_shapes/planted_pets/waterbirds/"
+            f"planted_cifar_pets, got {dataset!r}"
         )
     build_config = {k: v for k, v in raw.items() if k not in _NON_DATASET_CONFIG_KEYS}
     build_hash = short_hash(build_config)
@@ -131,6 +132,28 @@ def _resolve_and_build(
             torchvision_root = _CACHE_ROOT / "torchvision"
             start = time.monotonic()
             public, oracle = build_planted_pets(pets_cfg, torchvision_root, image_root)
+            write_build_tables(
+                store,
+                dataset,
+                build_hash,
+                public,
+                oracle,
+                config=build_config,
+                seed=build_seed,
+                duration_s=time.monotonic() - start,
+            )
+    elif dataset == "planted_cifar_pets":
+        cifar_cfg = CifarPetsConfig.model_validate(build_config)
+        image_root = directory / "images"
+        build_seed = cifar_cfg.build_seed
+        patch_spec = cifar_cfg.patch_spec
+        if already_built:
+            public = read_public_table(directory / "public.parquet")
+            oracle = read_oracle_table(directory / "oracle.parquet")
+        else:
+            torchvision_root = _CACHE_ROOT / "torchvision"
+            start = time.monotonic()
+            public, oracle = build_cifar_pets(cifar_cfg, torchvision_root, image_root)
             write_build_tables(
                 store,
                 dataset,
@@ -347,9 +370,10 @@ def reliance(config: ConfigOption, seed: SeedOption = None) -> None:
     dataset, _, public, oracle, image_root, patch_spec, build_seed = _resolve_and_build(
         config, force=False
     )
-    if dataset != "planted_pets" or patch_spec is None:
+    if dataset not in {"planted_pets", "planted_cifar_pets"} or patch_spec is None:
         raise typer.BadParameter(
-            "reliance only applies to planted_pets (FR-R1: a shortcut we control)"
+            "reliance only applies to a planted shortcut we control "
+            "(planted_pets/planted_cifar_pets, FR-R1)"
         )
 
     train_cfg, _ = _resolved_train_config(raw, seed)

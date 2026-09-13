@@ -1,0 +1,18 @@
+# D-002/D-037 fallback: CIFAR-10 cat vs dog at rho=0.99 (3 seeds). No control (rho=0.5) re-run --
+# the measurement pipeline itself was already validated against a known-null case on planted_pets
+# (Handoff H1); this run only tests whether native low resolution restores reliance.
+jobs:
+  - {stage: train, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 0}
+  - {stage: embed, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 0, space: model}
+  - {stage: embed, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 0, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 0}
+
+  - {stage: train, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 1}
+  - {stage: embed, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 1, space: model}
+  - {stage: embed, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 1, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 1}
+
+  - {stage: train, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 2}
+  - {stage: embed, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 2, space: model}
+  - {stage: embed, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 2, space: clip}
+  - {stage: reliance, config: configs/experiments/e1_cifar_pets_rho99.yaml, seed: 2}

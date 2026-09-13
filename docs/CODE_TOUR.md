@@ -121,21 +121,28 @@ about a real photo, so "realistic" means dropping examples, not reassigning them
 **Check yourself:** for PlantedPets, why is `val_a`/`val_b`'s patch balance allowed to differ
 slightly from exactly 50/50 even in `balanced` mode, while the *combined* val split is not?
 
-### `src/shortcut_lens/build/synthetic_shapes.py`, `pets.py`, `waterbirds.py`
+### `src/shortcut_lens/build/synthetic_shapes.py`, `pets.py`, `cifar_pets.py`, `waterbirds.py`
 **What they do:** one `build_*` function per dataset, each returning `(public_table,
 oracle_table)`. `synthetic_shapes` renders images procedurally; `pets` downloads via torchvision
 but parses its own raw annotation files rather than relying on the dataset object's internal
-attributes; `waterbirds` downloads directly from CodaLab (D-027) and asserts its group counts
-against docs/PRD.md §7 exactly, refusing to proceed on any mismatch.
-**Concept:** despite three very different data sources, all three produce the same two tables with
-the same `group_name` convention (`"<class>|<attribute>"`, matching `vocab/eval_keywords.yaml`'s
+attributes; `cifar_pets` is `pets`' D-002/D-037 fallback -- same construction, CIFAR-10 images
+upscaled to 224px *before* the patch is painted; `waterbirds` downloads directly from CodaLab
+(D-027) and asserts its group counts against docs/PRD.md §7 exactly, refusing to proceed on any
+mismatch.
+**Concept:** despite very different data sources, all four produce the same two tables with the
+same `group_name` convention (`"<class>|<attribute>"`, matching `vocab/eval_keywords.yaml`'s
 frozen keys) and compute `is_minority` from *realised training-set proportions*, never from the
 config's `rho` directly (ARCHITECTURE §4) -- so a bug in patch/attribute assignment would show up
-as a wrong minority label too, not be silently masked.
+as a wrong minority label too, not be silently masked. `pets` and `cifar_pets` share almost
+identical logic on purpose (D-038): the only construction difference is *when* the patch is
+painted relative to the resize, which is exactly the variable D-037's diagnosis needed isolated.
 **Read these functions:** `build_synthetic_shapes()`, `build_planted_pets()`,
-`build_waterbirds()`, and each module's own `_minority_*` / `minority_place_by_class` logic.
+`build_cifar_pets()`, `build_waterbirds()`, and each module's own `_minority_*` /
+`minority_place_by_class` logic.
 **Check yourself:** why is Waterbirds' expected-group-count check something the build *refuses to
-proceed past* on a mismatch, rather than a warning?
+proceed past* on a mismatch, rather than a warning? Why does `cifar_pets` upscale the image
+*before* calling `add_patch`, rather than painting a smaller patch on the native 32x32 image and
+upscaling afterwards?
 
 ### `src/shortcut_lens/build/datasets.py`
 **What it does:** `RenderedImageDataset`, the only `ImageDataset` implementation.

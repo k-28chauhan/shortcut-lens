@@ -432,3 +432,33 @@ because the bottleneck is the base task being too easy for a shortcut to matter,
 correlation. D-002's step 2 is exhausted; the next step is CIFAR-10 cat vs dog (D-002 step 3) --
 paused here for human input before starting, since it is a larger change (a new build module,
 revisiting D-001's dataset choice) rather than a config tweak.
+
+**D-038 · 2026-09-13 · Implemented D-002 step 3: `build/cifar_pets.py`, CIFAR-10 cat vs dog.**
+Why: D-037's ρ fallback (D-002 step 2) is exhausted -- ρ=0.95 and ρ=0.99 both failed gate G3 on
+Oxford-IIIT Pet, because an ImageNet-pretrained ResNet-50 solves cat-vs-dog almost immediately
+from real features regardless of correlation strength. CIFAR-10's native 32x32 resolution carries
+genuinely less real-image information, so the same classifier should rely on the shortcut more
+once real-feature accuracy is no longer near-saturated.
+Decision: `build/cifar_pets.py` mirrors `build/pets.py`'s construction exactly (same
+`assign_by_target_fraction`/`stratified_half_split`/`class_balance_by_subsampling` calls, same
+group encoding, same test-always-50/50 / val balanced-or-realistic logic) -- verified by running
+code: `torchvision.datasets.CIFAR10.classes[3] == "cat"`, `classes[5] == "dog"`, 5000/5000 in the
+official train split, 1000/1000 in test. Two deliberate choices, human-approved before coding
+(kept exactly as recommended, not modified):
+1. Images are upscaled 32x32 -> 224x224 *before* the patch is painted, using
+   `build/planting.py` unchanged, so the patch stays exactly as large/crisp as in `planted_pets` --
+   isolating "real-image information content" as the only variable that changed between the two
+   datasets' results.
+2. Reuses the exact same `erm_resnet50.yaml` train config (same architecture, same
+   `IMAGENET1K_V1` pretrained weights) for the first CIFAR attempt, rather than also switching
+   architecture/pretraining at the same time -- so if this fixes G3, it is clear which change
+   (resolution) did it; if it doesn't, trying `pretrained=None`/`tiny_cnn` next is a clean
+   follow-up, not confounded with this attempt.
+`planted_pets` (Oxford-IIIT Pet) is kept in the codebase with its real (failing) results as
+documented evidence -- not deleted -- since it is real, tested, working code and its null result
+is itself an informative finding (RQ: when does shortcut learning even occur).
+Alternatives: switch `pretrained=None` or architecture at the same time (rejected: would confound
+two variables in one experiment); delete `planted_pets` (rejected: a working null result with a
+verified root cause is worth keeping, not throwing away).
+Revisit if: CIFAR-10 also fails gate G3 -- next step would be trying `pretrained=None`/`tiny_cnn`
+on CIFAR-10, since that is the next unconfounded variable to isolate.

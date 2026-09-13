@@ -6,13 +6,13 @@ The human reads it first when returning to the project.
 ## Current state
 
 - **Current milestone:** M3 — Training, embeddings, reliance and GPU-handoff plumbing. Code
-  complete and green; gate G3 has run for real and **failed at both ρ=0.95 and ρ=0.99** (D-037) --
-  not yet closed. D-002's ρ-based fallback is exhausted; next step is a human decision.
-- **Last updated:** 2026-09-13 (Handoff H1b (ρ=0.99) completed, pulled, validated; gate G3 still
-  fails, mean WGA gap 4.3pts / `R_net` 0.024, both far under threshold)
-- **Blocked on:** a human decision on D-002's step 3 (switch planted_pets' base to CIFAR-10 cat vs
-  dog -- a real scope change, not a config tweak) -- see "Open questions". M1's sample-grid gap
-  remains open too.
+  complete and green; gate G3 **failed on planted_pets** (D-037, kept as documented evidence);
+  D-002 step 3 (`planted_cifar_pets`) implemented and locally sanity-checked (D-038), real run
+  going to Handoff H1c.
+- **Last updated:** 2026-09-13 (`build/cifar_pets.py` implemented, tested, 1-epoch local sanity
+  check passed; Handoff H1c prepared for the real 20-epoch/3-seed run)
+- **Blocked on:** the human running Handoff H1c (`jobs/h1c_cifar_pets.yaml`, ~1.5-2h estimate,
+  needs a push first) -- see "Next actions". M1's sample-grid gap remains open too.
 - **Dev machine:** MacBook Air M4, 24 GB unified memory, MPS-capable (confirmed:
   `torch.backends.mps.is_available()` → `True` after `uv sync --extra cpu`, D-026). Local
   training/embedding uses MPS by default from M3 onward; cloud GPU handoffs (Kaggle/Colab T4)
@@ -21,12 +21,13 @@ The human reads it first when returning to the project.
 
 ## Next actions
 
-1. Human: decide on D-002's step 3 (CIFAR-10 cat vs dog base) -- see "Open questions" for the
-   options Claude Code laid out.
-2. Human: once planted_pets passes G3 (or a decision is made on how to handle it), decide when to
-   run the deferred waterbirds half (`jobs/h1_waterbirds.yaml`).
-3. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below).
-4. Claude Code: M3 human checkpoint pending (read `erm.py`, explain mixed precision/checkpoint-
+1. Human: run Handoff H1c (`jobs/h1c_cifar_pets.yaml`) on Kaggle/Colab once pushed; report back.
+2. Claude Code: pull + validate H1c, evaluate gate G3 on `planted_cifar_pets`. If it also fails,
+   the next unconfounded step is `pretrained=None`/`tiny_cnn` on the same CIFAR base (D-038).
+3. Human: once a planted dataset passes G3 (or a final decision is made), decide when to run the
+   deferred waterbirds half (`jobs/h1_waterbirds.yaml`).
+4. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below).
+5. Claude Code: M3 human checkpoint pending (read `erm.py`, explain mixed precision/checkpoint-
    resume/why selection uses average accuracy/what `R_net` measures) -- waiting on the human.
 
 ## Open questions for the human
@@ -37,17 +38,6 @@ The human reads it first when returning to the project.
   the working directory changed since). Decide whether to regenerate now (`slens build` +
   `slens data report` for each of the three datasets -- `planted_pets` and `waterbirds` need
   network downloads) or defer. Not acted on yet per the human's instruction this session.
-
-- **Gate G3 failed at both ρ=0.95 and ρ=0.99 -- D-002's ρ fallback is exhausted, decide on step 3.**
-  See gate log and D-037 for the full result and root-cause check (genuine finding both times, not
-  a bug -- the pretrained ResNet-50 solves cat-vs-dog almost immediately regardless of correlation
-  strength, so the shortcut is barely needed). D-002's remaining step is switching the base dataset
-  to CIFAR-10 cat vs dog (32x32, no ImageNet pretraining head start, so a shortcut should actually
-  matter) -- a real scope change: a new `build/cifar_pets.py`-equivalent module, revisiting D-001's
-  dataset rationale, and re-running M1's build/firewall tests for a 4th dataset type. Options: (a)
-  do it, (b) keep ρ=0.99's real (failing) result as the honest planted_pets finding and move on to
-  M4 with waterbirds as the working shortcut-learning example instead, (c) something else --
-  needs a human call before Claude Code invests in a new dataset module.
 
 - **A real Hugging Face token was pasted in plaintext into this chat session on 2026-09-13.** The
   human was told to revoke and rotate it immediately on huggingface.co/settings/tokens. Confirm
@@ -60,7 +50,7 @@ The human reads it first when returning to the project.
 | G0 | 2026-09-12 | PASS | `make check` green locally (commit `8c8d0d7`): ruff, ruff format, mypy strict (76 files, 0 errors), lint-imports (1 contract kept), pytest (36 passed). `slens --help` lists all 16 ARCHITECTURE §7 commands plus `data report`. First push (commit `60dea6d`) failed CI at "Set up job": `astral-sh/setup-uv@v10` doesn't resolve (that action publishes no floating major tag, only exact tags). Fixed by pinning `@v10.1.0` (commit `40f88f6`); GitHub Actions run confirmed `success` (human-verified). |
 | G1 | 2026-09-12 | PASS | All three dataset counts match expectations: synthetic_shapes and planted_pets by construction (train ρ within 0.5pp of target, test exactly ~50/50, ρ=0.5 control near-zero signal, verified against the real downloaded pet images); waterbirds against real data via a verified Hugging Face parquet mirror (D-029) -- all 12 frozen PRD §7 group-count cells match exactly across train/val/test. Sample grids generated via `slens data report` for all three. `make check` green (`pytest -m "not slow and not gpu and not network"` + the `network`-marked pets/waterbirds suites, both run for real this session). Human checkpoint (reading the sample grids and source files) still pending. |
 | G2 | 2026-09-12 | PASS* | `make check` green (ruff, ruff format, mypy strict 76 files, lint-imports 1 contract kept, pytest 114 passed / 10 deselected). Full suite incl. slow + network: 124 passed, coverage 92% (≥85% target). `metrics.py`'s 9 functions (`accuracy`, `group_accuracy`, `worst_group_accuracy`, `mean_group_accuracy`, `weighted_average_accuracy`, `wga_gap`, `precision_at_k`, `slice_auroc`, `jaccard`, `recovery`) each carry a docstring citing PRD §12. *PASS is scoped to what docs/PLAN.md's own M2 task list assigns to M2 (`metrics.py`/`stats.py`/`evaluation/core.py`); 5 of PRD §12's 13 rows (Top-1 hit, Naming hit@3, `R_net`, Fix/break rate, Cost of labels) are derived quantities the M2 task list itself defers to `discovery_eval.py` (M4), `naming_eval.py` (M5), `verification/reliance.py` (M3) and `verification/verify.py` / `mitigation_eval.py` (M6/M7) -- flagging the literal "every metric in PRD §12" gate wording against that scoping rather than silently treating it as fully satisfied. Human checkpoint (read `metrics.py`/`stats.py`, re-derive BH by hand) still pending. |
-| G3 | 2026-09-13 | FAIL (ρ=0.95 and ρ=0.99 both); D-002 step 2 exhausted | Code side: all green (`make check`, `make smoke`). ρ=0.95 (`E1-planted_pets-e7a2c0c8-s{0,1,2}`): mean WGA gap 1.7±0.9 pts, `R_net` 0.011±0.003 (need ≥10 / ≥0.20). Control ρ=0.5 correctly passes (`R_net` 0.001±0.001, need ≤0.05). ρ=0.99 (`E1-planted_pets-50f71fb8-s{0,1,2}`): mean WGA gap 4.3±2.6 pts, `R_net` 0.024±0.018 -- better but still far under threshold. Checked for bugs both times (patch renders correctly, realised ρ matches config exactly each time) -- genuine result: an ImageNet-pretrained ResNet-50 solves cat-vs-dog almost immediately (100% train acc by epoch 6), so the shortcut is barely needed regardless of correlation strength. Matches PRD §16 risk 1. D-037: D-002's ρ fallback (step 2) is exhausted; step 3 (CIFAR-10 cat vs dog base) is next, paused for human input since it's a bigger change (new build module). Gate thresholds unchanged throughout. |
+| G3 | 2026-09-13 | PENDING on planted_cifar_pets; FAIL on planted_pets (documented) | `planted_pets`: FAIL at both ρ=0.95 (mean WGA gap 1.7±0.9pts, `R_net` 0.011±0.003) and ρ=0.99 (4.3±2.6pts, 0.024±0.018) -- need ≥10pts / ≥0.20. Control ρ=0.5 correctly passes (`R_net` 0.001±0.001, need ≤0.05). Root cause confirmed genuine (not a bug, checked both times): an ImageNet-pretrained ResNet-50 solves cat-vs-dog almost immediately regardless of correlation strength (PRD §16 risk 1). D-002's ρ fallback exhausted; kept as documented evidence. D-038: implemented `planted_cifar_pets` (D-002 step 3) -- new build module, tests (7 network-marked, all pass), 1-epoch local sanity check passed (train_acc 0.975, val_avg_acc 0.531 after 1 epoch -- a much bigger train/val gap than pets showed, consistent with the harder-task hypothesis). Handoff H1c prepared for the real 20-epoch/3-seed run. Gate thresholds unchanged throughout. |
 | G4 | | | |
 | G5 | | | |
 | G6 | | | |
@@ -73,6 +63,7 @@ The human reads it first when returning to the project.
 |---|---|---|---|---|---|---|
 | H1 | 2026-09-12 | `d589f5d` | `jobs/h1_erm.yaml` (planted_pets ρ=0.95+control, 6 runs); `jobs/h1_waterbirds.yaml` (waterbirds, 3 runs, deferred) | `E1-planted_pets-e7a2c0c8-s{0,1,2}` (ρ=0.95), `E1-planted_pets-a08bcaa2-s{0,1,2}` (control); `E1-waterbirds-a9772376-s{0,1,2}` (deferred half) | **measured**: ~406s/run (~6.8 min), Tesla T4, `fp16_amp` -- much faster than the pre-run MPS-based estimate | yes, all 6 (`slens validate-run`) -- see gate G3 (ρ=0.95 failed; control passed as expected) |
 | H1b | 2026-09-13 | `f520176` | `jobs/h1_pets_rho99.yaml` (planted_pets ρ=0.99, 3 runs) | `E1-planted_pets-50f71fb8-s{0,1,2}` | done | yes, all 3 (`slens validate-run`) -- see gate G3 (also failed) |
+| H1c | 2026-09-13 | (pending push) | `jobs/h1c_cifar_pets.yaml` (planted_cifar_pets ρ=0.99, 3 runs) | `E1-planted_cifar_pets-ef0cc3ab-s{0,1,2}` | prepared, estimate ~1.5-2h total (scaled from H1's measured per-image cost x ~4.2 for CIFAR's larger 10k-image train split -- not directly measured on cloud hardware) | not yet |
 | H2 | | | | | | |
 | H3 | | | | | | |
 
@@ -195,14 +186,18 @@ The human reads it first when returning to the project.
 - **How to run:** `make smoke` (fast, offline pipeline proof); `uv run slens train --config
   configs/experiments/e1_pets_rho95.yaml` then `embed --space model`/`--space clip` then
   `reliance`/`evaluate`; `uv run slens run-jobs jobs/h1_erm.yaml --dry-run` to preview H1.
-- **Gate result:** G3 PENDING -- see gate log above. Code and tests are complete and green; the
-  gate's own frozen thresholds need a real E1 training run, going to Handoff H1 (cloud).
+- **Gate result:** G3 -- code side fully green throughout. Threshold side: **FAIL on
+  `planted_pets`** at both ρ=0.95 and ρ=0.99 (D-037, root cause confirmed genuine, kept as
+  documented evidence); D-002's fallback (`planted_cifar_pets`, D-038) implemented, tested, and
+  locally sanity-checked, real result pending Handoff H1c.
 - **Decisions made:** D-032 (`val_avg_acc` selection metric = `val_a`+`val_b` combined), D-033
   (`amp=true` on non-CUDA: warn, don't silently no-op or raise; `precision_mode` recorded in the
   manifest -- human instruction), D-034 (`Predictions`/`EmbeddingTable` dataclasses turned out
   unnecessary in M3 after all, amending D-031's plan -- reported as a finding, not silently
   dropped), D-035 (exact resume via a fresh per-epoch `DataLoader`, not RNG-state snapshotting),
-  D-036 (`reliance.parquet`'s row schema: 4 per-condition rows + 1 `R_net` summary row).
+  D-036 (`reliance.parquet`'s row schema: 4 per-condition rows + 1 `R_net` summary row), D-037
+  (G3 fails on `planted_pets` at ρ=0.95 and ρ=0.99, genuine finding), D-038 (`planted_cifar_pets`,
+  D-002's fallback: same construction, patch painted after upscaling 32px→224px).
 - **Verified by running code (CLAUDE.md §5):** `torchvision.models.ResNet18_Weights`/
   `ResNet50_Weights` enum members and `IMAGENET1K_V1.transforms()`; `open_clip.list_pretrained()`
   confirms `("ViT-B-32", "laion2b_s34b_b79k")`; `open_clip`'s own preprocessing is a geometric
@@ -217,4 +212,4 @@ The human reads it first when returning to the project.
   extrapolated from dataset size relative to the measured pets run, not separately measured.
 - **Open questions:** the M3 human checkpoint (read `erm.py`, explain mixed precision/checkpoint-
   resume/why selection uses average accuracy/what `R_net` measures) is still pending; M1's
-  sample-grid gap remains open too; Handoff H1 is being prepared (see GPU handoff log).
+  sample-grid gap remains open too; Handoff H1c (`planted_cifar_pets`) is being prepared next.

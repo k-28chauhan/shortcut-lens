@@ -118,7 +118,8 @@ Hypotheses are stated per experiment in `docs/EXPERIMENTS.md` before results exi
 | ID | Role | Source | Classes | Spurious attribute | Notes |
 |---|---|---|---|---|---|
 | `synthetic_shapes` | CI fixture; CPU gate | Procedurally generated, 32×32 | circle vs square | small red dot, or background tint | Tiny CNN learns the shortcut in seconds on CPU. |
-| `planted_pets` | Main ground-truth testbed | Oxford-IIIT Pet (torchvision), binary cat vs dog | cat, dog | coloured square patch we paint | Controlled ρ, patch size, colour, position. Natural images at usable resolution; licence reported as CC BY-SA 4.0 (verify). |
+| `planted_pets` | Ground-truth testbed (real-photo resolution) | Oxford-IIIT Pet (torchvision), binary cat vs dog | cat, dog | coloured square patch we paint | Controlled ρ, patch size, colour, position. Natural images at usable resolution; licence reported as CC BY-SA 4.0 (verify). **Failed gate G3 at ρ=0.95 and ρ=0.99** (D-037): an ImageNet-pretrained backbone solves cat-vs-dog almost immediately, so the patch is never needed. Kept as a documented null result. |
+| `planted_cifar_pets` | Main ground-truth testbed (D-002/D-037 fallback) | CIFAR-10 (torchvision), binary cat vs dog | cat, dog | coloured square patch we paint | Same planting code and construction as `planted_pets`; images upscaled 32×32→224×224 *before* the patch is painted, so the patch stays exactly as crisp/large -- isolating "does lower real-image information restore shortcut reliance" as the only changed variable. |
 | `waterbirds` | Natural benchmark | Waterbirds (Sagawa et al.), via WILDS download or original tarball | landbird, waterbird | land vs water background | Official splits. Validation set is group-balanced within class — we also build a realistic variant. |
 
 **Group encoding** (all datasets): `group = 2 * y + attribute`. Minority groups are determined from
@@ -136,9 +137,19 @@ training-set proportions and stored in the oracle table, not hardcoded.
   The patch is painted at load time, after decoding, so JPEG compression never touches it.
 - Defaults: patch size 32 px, colour magenta (255, 0, 255), alpha 1.0, uniformly random position
   per image (deterministic from example id + seed).
-- Fallback if the model does not learn the shortcut strongly enough (see gate G3):
-  CIFAR-10 cat vs dog with the same planting code (decision logged).
+- Fallback if the model does not learn the shortcut strongly enough (see gate G3): CIFAR-10 cat vs
+  dog with the same planting code (D-002) -- **triggered** at both ρ=0.95 and ρ=0.99 (D-037); see
+  `planted_cifar_pets` below.
 - **Control condition:** ρ = 0.5 (no patch–class correlation), same patch settings.
+
+**PlantedCifarPets construction (D-002/D-037 fallback).** Identical to PlantedPets above, except:
+- Source is CIFAR-10 (torchvision), official train split (5000 cat / 5000 dog, already
+  class-balanced) and test split (1000 cat / 1000 dog), used the same way as PlantedPets' `trainval`
+  and `test` splits.
+- Images are upscaled from native 32×32 to 224×224 *before* the patch is painted (same
+  `build/planting.py` functions, same defaults), so the patch is exactly as large/crisp as in
+  PlantedPets -- the only changed variable is how much real information the underlying photo
+  carries.
 
 **Waterbirds.**
 - Official train/val/test splits. Expected group counts (verify at build time):
