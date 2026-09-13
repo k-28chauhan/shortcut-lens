@@ -63,7 +63,7 @@ The human reads it first when returning to the project.
 |---|---|---|---|---|---|---|
 | H1 | 2026-09-12 | `d589f5d` | `jobs/h1_erm.yaml` (planted_pets ρ=0.95+control, 6 runs); `jobs/h1_waterbirds.yaml` (waterbirds, 3 runs, deferred) | `E1-planted_pets-e7a2c0c8-s{0,1,2}` (ρ=0.95), `E1-planted_pets-a08bcaa2-s{0,1,2}` (control); `E1-waterbirds-a9772376-s{0,1,2}` (deferred half) | **measured**: ~406s/run (~6.8 min), Tesla T4, `fp16_amp` -- much faster than the pre-run MPS-based estimate | yes, all 6 (`slens validate-run`) -- see gate G3 (ρ=0.95 failed; control passed as expected) |
 | H1b | 2026-09-13 | `f520176` | `jobs/h1_pets_rho99.yaml` (planted_pets ρ=0.99, 3 runs) | `E1-planted_pets-50f71fb8-s{0,1,2}` | done | yes, all 3 (`slens validate-run`) -- see gate G3 (also failed) |
-| H1c | 2026-09-13 | (pending push) | `jobs/h1c_cifar_pets.yaml` (planted_cifar_pets ρ=0.99, 3 runs) | `E1-planted_cifar_pets-ef0cc3ab-s{0,1,2}` | prepared, estimate ~1.5-2h total (scaled from H1's measured per-image cost x ~4.2 for CIFAR's larger 10k-image train split -- not directly measured on cloud hardware) | not yet |
+| H1c | 2026-09-13 | `9defc5f` | `jobs/h1c_cifar_pets.yaml` (planted_cifar_pets ρ=0.99, 3 runs) | `E1-planted_cifar_pets-ef0cc3ab-s{0,1,2}` | prepared, estimate ~1.5-2h total (scaled from H1's measured per-image cost x ~4.2 for CIFAR's larger 10k-image train split -- not directly measured on cloud hardware) | not yet |
 | H2 | | | | | | |
 | H3 | | | | | | |
 
