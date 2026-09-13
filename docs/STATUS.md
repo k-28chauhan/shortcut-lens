@@ -6,11 +6,13 @@ The human reads it first when returning to the project.
 ## Current state
 
 - **Current milestone:** M3 — Training, embeddings, reliance and GPU-handoff plumbing. Code
-  complete and green; gate G3 has run for real and **failed at ρ=0.95** (D-037) -- not yet closed.
-- **Last updated:** 2026-09-13 (Handoff H1 planted_pets half completed, pulled, validated; gate G3
-  evaluated and failed; applying D-002's ρ=0.99 fallback, Handoff H1b prepared)
-- **Blocked on:** the human running Handoff H1b (`jobs/h1_pets_rho99.yaml`, ~20-25 min estimate,
-  needs a push first) -- see "Next actions". M1's sample-grid gap remains open too.
+  complete and green; gate G3 has run for real and **failed at both ρ=0.95 and ρ=0.99** (D-037) --
+  not yet closed. D-002's ρ-based fallback is exhausted; next step is a human decision.
+- **Last updated:** 2026-09-13 (Handoff H1b (ρ=0.99) completed, pulled, validated; gate G3 still
+  fails, mean WGA gap 4.3pts / `R_net` 0.024, both far under threshold)
+- **Blocked on:** a human decision on D-002's step 3 (switch planted_pets' base to CIFAR-10 cat vs
+  dog -- a real scope change, not a config tweak) -- see "Open questions". M1's sample-grid gap
+  remains open too.
 - **Dev machine:** MacBook Air M4, 24 GB unified memory, MPS-capable (confirmed:
   `torch.backends.mps.is_available()` → `True` after `uv sync --extra cpu`, D-026). Local
   training/embedding uses MPS by default from M3 onward; cloud GPU handoffs (Kaggle/Colab T4)
@@ -19,16 +21,12 @@ The human reads it first when returning to the project.
 
 ## Next actions
 
-1. Claude Code: commit and push `configs/experiments/e1_pets_rho99.yaml` +
-   `jobs/h1_pets_rho99.yaml` + this update (in progress).
-2. Human: run Handoff H1b (`jobs/h1_pets_rho99.yaml`) on Kaggle/Colab per `docs/RUNBOOK_GPU.md` at
-   the new commit -- reuse the same notebook, just change `JOBS`; report back when done.
-3. Claude Code: pull + validate H1b, re-evaluate gate G3 at ρ=0.99. If it still fails, escalate to
-   D-002's step 3 (CIFAR-10 cat vs dog base) rather than retrying ρ again.
-4. Human: once planted_pets passes G3 (or a decision is made on how to handle it), decide when to
+1. Human: decide on D-002's step 3 (CIFAR-10 cat vs dog base) -- see "Open questions" for the
+   options Claude Code laid out.
+2. Human: once planted_pets passes G3 (or a decision is made on how to handle it), decide when to
    run the deferred waterbirds half (`jobs/h1_waterbirds.yaml`).
-5. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below).
-6. Claude Code: M3 human checkpoint pending (read `erm.py`, explain mixed precision/checkpoint-
+3. Human: M1 checkpoint remains open whenever convenient (see "Open questions" below).
+4. Claude Code: M3 human checkpoint pending (read `erm.py`, explain mixed precision/checkpoint-
    resume/why selection uses average accuracy/what `R_net` measures) -- waiting on the human.
 
 ## Open questions for the human
@@ -40,13 +38,16 @@ The human reads it first when returning to the project.
   `slens data report` for each of the three datasets -- `planted_pets` and `waterbirds` need
   network downloads) or defer. Not acted on yet per the human's instruction this session.
 
-- **Gate G3 failed at ρ=0.95; ρ=0.99 fallback in progress, decide what to do if it also fails.**
-  See gate log and D-037 for the full result and root-cause check (genuine finding, not a bug --
-  the pretrained ResNet-50 solves cat-vs-dog almost immediately, so the shortcut is never needed).
-  If ρ=0.99 (Handoff H1b) also fails to raise `R_net` above 0.20, D-002's next fallback step is
-  switching the base dataset to CIFAR-10 cat vs dog -- flagging now so it isn't a surprise later,
-  and because that would be a bigger change (a new build module, D-001's rationale revisited) worth
-  planning for rather than reacting to.
+- **Gate G3 failed at both ρ=0.95 and ρ=0.99 -- D-002's ρ fallback is exhausted, decide on step 3.**
+  See gate log and D-037 for the full result and root-cause check (genuine finding both times, not
+  a bug -- the pretrained ResNet-50 solves cat-vs-dog almost immediately regardless of correlation
+  strength, so the shortcut is barely needed). D-002's remaining step is switching the base dataset
+  to CIFAR-10 cat vs dog (32x32, no ImageNet pretraining head start, so a shortcut should actually
+  matter) -- a real scope change: a new `build/cifar_pets.py`-equivalent module, revisiting D-001's
+  dataset rationale, and re-running M1's build/firewall tests for a 4th dataset type. Options: (a)
+  do it, (b) keep ρ=0.99's real (failing) result as the honest planted_pets finding and move on to
+  M4 with waterbirds as the working shortcut-learning example instead, (c) something else --
+  needs a human call before Claude Code invests in a new dataset module.
 
 - **A real Hugging Face token was pasted in plaintext into this chat session on 2026-09-13.** The
   human was told to revoke and rotate it immediately on huggingface.co/settings/tokens. Confirm
@@ -59,7 +60,7 @@ The human reads it first when returning to the project.
 | G0 | 2026-09-12 | PASS | `make check` green locally (commit `8c8d0d7`): ruff, ruff format, mypy strict (76 files, 0 errors), lint-imports (1 contract kept), pytest (36 passed). `slens --help` lists all 16 ARCHITECTURE §7 commands plus `data report`. First push (commit `60dea6d`) failed CI at "Set up job": `astral-sh/setup-uv@v10` doesn't resolve (that action publishes no floating major tag, only exact tags). Fixed by pinning `@v10.1.0` (commit `40f88f6`); GitHub Actions run confirmed `success` (human-verified). |
 | G1 | 2026-09-12 | PASS | All three dataset counts match expectations: synthetic_shapes and planted_pets by construction (train ρ within 0.5pp of target, test exactly ~50/50, ρ=0.5 control near-zero signal, verified against the real downloaded pet images); waterbirds against real data via a verified Hugging Face parquet mirror (D-029) -- all 12 frozen PRD §7 group-count cells match exactly across train/val/test. Sample grids generated via `slens data report` for all three. `make check` green (`pytest -m "not slow and not gpu and not network"` + the `network`-marked pets/waterbirds suites, both run for real this session). Human checkpoint (reading the sample grids and source files) still pending. |
 | G2 | 2026-09-12 | PASS* | `make check` green (ruff, ruff format, mypy strict 76 files, lint-imports 1 contract kept, pytest 114 passed / 10 deselected). Full suite incl. slow + network: 124 passed, coverage 92% (≥85% target). `metrics.py`'s 9 functions (`accuracy`, `group_accuracy`, `worst_group_accuracy`, `mean_group_accuracy`, `weighted_average_accuracy`, `wga_gap`, `precision_at_k`, `slice_auroc`, `jaccard`, `recovery`) each carry a docstring citing PRD §12. *PASS is scoped to what docs/PLAN.md's own M2 task list assigns to M2 (`metrics.py`/`stats.py`/`evaluation/core.py`); 5 of PRD §12's 13 rows (Top-1 hit, Naming hit@3, `R_net`, Fix/break rate, Cost of labels) are derived quantities the M2 task list itself defers to `discovery_eval.py` (M4), `naming_eval.py` (M5), `verification/reliance.py` (M3) and `verification/verify.py` / `mitigation_eval.py` (M6/M7) -- flagging the literal "every metric in PRD §12" gate wording against that scoping rather than silently treating it as fully satisfied. Human checkpoint (read `metrics.py`/`stats.py`, re-derive BH by hand) still pending. |
-| G3 | 2026-09-13 | FAIL (ρ=0.95); retrying ρ=0.99 | Code side: all green (`make check`, `make smoke`). Threshold side, H1 planted_pets results (`E1-planted_pets-e7a2c0c8-s{0,1,2}`, commit `d589f5d`, validated): ρ=0.95 mean WGA gap 1.7±0.9 pts (need ≥10) and `R_net` 0.011±0.003 (need ≥0.20) -- **fails badly**. Control (ρ=0.5) correctly passes: `R_net` 0.001±0.001 (need ≤0.05). Checked for bugs first (patch renders correctly, realised ρ matches config exactly) -- genuine result, not a pipeline bug: an ImageNet-pretrained ResNet-50 solves cat-vs-dog almost immediately (100% train acc by epoch 6), so the 32px patch never becomes necessary. Matches PRD §16 risk 1 exactly. D-037: applying D-002's fallback, ρ=0.99 (`configs/experiments/e1_pets_rho99.yaml`, `jobs/h1_pets_rho99.yaml`), human-approved. Gate thresholds unchanged. |
+| G3 | 2026-09-13 | FAIL (ρ=0.95 and ρ=0.99 both); D-002 step 2 exhausted | Code side: all green (`make check`, `make smoke`). ρ=0.95 (`E1-planted_pets-e7a2c0c8-s{0,1,2}`): mean WGA gap 1.7±0.9 pts, `R_net` 0.011±0.003 (need ≥10 / ≥0.20). Control ρ=0.5 correctly passes (`R_net` 0.001±0.001, need ≤0.05). ρ=0.99 (`E1-planted_pets-50f71fb8-s{0,1,2}`): mean WGA gap 4.3±2.6 pts, `R_net` 0.024±0.018 -- better but still far under threshold. Checked for bugs both times (patch renders correctly, realised ρ matches config exactly each time) -- genuine result: an ImageNet-pretrained ResNet-50 solves cat-vs-dog almost immediately (100% train acc by epoch 6), so the shortcut is barely needed regardless of correlation strength. Matches PRD §16 risk 1. D-037: D-002's ρ fallback (step 2) is exhausted; step 3 (CIFAR-10 cat vs dog base) is next, paused for human input since it's a bigger change (new build module). Gate thresholds unchanged throughout. |
 | G4 | | | |
 | G5 | | | |
 | G6 | | | |
@@ -71,7 +72,7 @@ The human reads it first when returning to the project.
 | Handoff | Date | Commit | Jobs file | Run ids | Measured time | Validated |
 |---|---|---|---|---|---|---|
 | H1 | 2026-09-12 | `d589f5d` | `jobs/h1_erm.yaml` (planted_pets ρ=0.95+control, 6 runs); `jobs/h1_waterbirds.yaml` (waterbirds, 3 runs, deferred) | `E1-planted_pets-e7a2c0c8-s{0,1,2}` (ρ=0.95), `E1-planted_pets-a08bcaa2-s{0,1,2}` (control); `E1-waterbirds-a9772376-s{0,1,2}` (deferred half) | **measured**: ~406s/run (~6.8 min), Tesla T4, `fp16_amp` -- much faster than the pre-run MPS-based estimate | yes, all 6 (`slens validate-run`) -- see gate G3 (ρ=0.95 failed; control passed as expected) |
-| H1b | 2026-09-13 | (pending push) | `jobs/h1_pets_rho99.yaml` (planted_pets ρ=0.99, 3 runs) | `E1-planted_pets-50f71fb8-s{0,1,2}` | prepared, ~7 min/run measured from H1 -> ~20-25 min total estimate | not yet |
+| H1b | 2026-09-13 | `f520176` | `jobs/h1_pets_rho99.yaml` (planted_pets ρ=0.99, 3 runs) | `E1-planted_pets-50f71fb8-s{0,1,2}` | done | yes, all 3 (`slens validate-run`) -- see gate G3 (also failed) |
 | H2 | | | | | | |
 | H3 | | | | | | |
 

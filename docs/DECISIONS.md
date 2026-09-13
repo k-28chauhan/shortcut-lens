@@ -422,3 +422,13 @@ Also recorded: real cloud timing from H1 (Tesla T4, `fp16_amp`) was ~406s/run (~
 overhead) -- much faster than the local-MPS-based estimate in the H1 handoff message, so re-runs
 are cheap (~7 min/run).
 Revisit if: ρ=0.99 also fails to raise `R_net` above 0.20 -- proceed to D-002's CIFAR-10 fallback.
+
+**Update, 2026-09-13:** ρ=0.99 (Handoff H1b, `E1-planted_pets-50f71fb8-s{0,1,2}`) measured: mean
+WGA gap 4.3±2.6 points (still far under 10) and `R_net` 0.024±0.018 (still far under 0.20) --
+better than ρ=0.95's 1.7pt/0.011, but nowhere near threshold. Realised ρ confirmed correct (cat
+has_patch rate 0.990, dog 0.010) -- again not a bug. This confirms the diagnosis: raising
+correlation strength alone gives a small improvement, not the order-of-magnitude jump needed,
+because the bottleneck is the base task being too easy for a shortcut to matter, not insufficient
+correlation. D-002's step 2 is exhausted; the next step is CIFAR-10 cat vs dog (D-002 step 3) --
+paused here for human input before starting, since it is a larger change (a new build module,
+revisiting D-001's dataset choice) rather than a config tweak.
